@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package caminfo;
+
+message Insta360Metadata {
+    optional string serial_number = 1;
+    optional string camera_type   = 2;
+    optional string fw_version    = 3;
+    optional string file_type     = 4;
+    optional string offset        = 5;
+    optional string offset_v2     = 53;
+    optional string offset_v3     = 54;
+    optional string ip            = 6;
+    optional uint64 creation_time = 7;
+    optional uint64 export_time   = 8;
+    optional uint64 file_size     = 9;
+    optional uint32 total_time    = 10;
+
+    optional bytes  gyro          = 14;
+
+    enum TriggerSource {
+        TriggerSource_Unknown       = 0;
+        TriggerSource_CameraButton  = 1;
+        TriggerSource_RemoteControl = 2;
+        TriggerSource_Usb           = 3;
+        TriggerSource_BtRemote      = 4;
+    }
+    optional TriggerSource trigger_source = 18;
+
+    message Vec2i {
+        optional int32 x = 1;
+        optional int32 y = 2;
+    }
+    optional Vec2i   dimension  = 19;
+    optional int32  frame_rate = 20;
+    optional int64  first_frame_timestamp = 24;
+    optional double rolling_shutter_time  = 25;
+    enum MediaType {
+        VideoNormal           = 0;
+        VideoBullettime       = 1;
+        VideoTimelapse        = 2;
+        PhotoNormal           = 3;
+        PhotoHdr              = 4;
+        PhotoIntervalshooting = 5;
+        VideoHdr              = 6;
+        PhotoBurst            = 7;
+        VideoStaticTimelapse  = 8;
+        VideoTimeshift        = 9;
+        PhotoAebNightMode     = 10;
+        VideoSuperNormal      = 11;
+        VideoLooprecording    = 12;
+        PhotoStarlapse        = 13;
+        PhotoPanoMode         = 14;
+        VideoFpv              = 15;
+        VideoMovie            = 16;
+        VideoSlowmotion       = 17;
+    }
+    message FileGroupInfo {
+        optional MediaType type       = 1;
+        optional uint32    index      = 2;
+        optional string    identifier = 3;
+        optional uint32    total      = 4;
+    }
+    optional FileGroupInfo file_info = 26;
+
+    message CropInfo {
+        optional uint32 src_width  = 1;
+        optional uint32 src_height = 2;
+        optional uint32 dst_width  = 3;
+        optional uint32 dst_height = 4;
+    }
+    optional CropInfo crop_info = 27;
+
+    optional double gyro_timestamp    = 28;
+    optional bool   if_gyro_timestamp = 29;
+
+    optional uint32 timelapse_interval = 30;
+    optional bool   timelapse_interval_in_millisecond = 59;
+
+    optional bool is_selfie = 41;
+
+    optional bool is_flowstate_online = 42;
+
+    optional Vec2i resolution_size = 44;
+
+    enum Posture {
+        Posture_Rotate_0   = 0;
+        Posture_Rotate_90  = 1;
+        Posture_Rotate_180 = 2;
+        Posture_Rotate_270 = 3;
+    }
+    optional Posture cam_posture = 46; // not related to video display rotation
+
+    enum FOVType {
+        FovType_Unknown       = 0;
+        FovType_Wide          = 1;
+        FovType_Linear        = 2;
+        FovType_Ultrawide     = 3;
+        FovType_Narrow        = 4;
+        FovType_Pov           = 5;
+        FovType_LinearPlus    = 6;
+        FovType_LinearHorizon = 7;
+        // likely wrong
+    }
+    optional FOVType fov_type = 47;
+
+    enum GyroType {
+        InsdevImuType20948 = 0;
+        InsdevImuType40609 = 1;
+    }
+    optional GyroType gyro_type = 51;
+
+    optional bool is_raw_gyro = 62;
+
+    enum PtsType {
+        PtsUnknown       = 0;
+        PtsMp4           = 1;
+        PtsExposureFile  = 2;
+    }
+    optional PtsType pts_type = 64;
+
+    message GyroRange {
+        optional uint32 acc_range  = 1;
+        optional uint32 gyro_range = 2;
+    }
+    optional GyroRange gyro_range_info = 65;
+
+}
