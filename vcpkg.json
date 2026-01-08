@@ -1,0 +1,19 @@
+{
+    "dependencies": [
+        {
+            "name": "eigen3",
+            "version>=": "3.4.0"
+        },
+        {
+            "name": "opencv4",
+            "default-features": false,
+            "version>=": "4.10.0",
+            "features": [
+                "jpeg",
+                "png",
+                "calib3d"
+            ]
+        },
+        "protobuf"
+    ]
+}

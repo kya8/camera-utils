@@ -3,9 +3,9 @@ project(caminfo LANGUAGES CXX)
 
 option(CAMINFO_ENABLE_ANY "Include std::any" OFF)
 
-find_package(Protobuf CONFIG REQUIRED)
+find_package(Protobuf REQUIRED)
 find_package(Threads)
-find_package(Eigen3 3.4 CONFIG REQUIRED)
+find_package(Eigen3 CONFIG REQUIRED)
 
 add_library(caminfo STATIC
 varmap.hpp varmap.cpp value_types.hpp

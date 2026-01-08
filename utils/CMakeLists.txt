@@ -1,6 +1,6 @@
 find_package(OpenCV 4.4 REQUIRED core imgcodecs imgproc calib3d)
 find_package(Threads REQUIRED)
-find_package(Eigen3 3.4 CONFIG REQUIRED)
+find_package(Eigen3 CONFIG REQUIRED)
 
 set(MULTI_CALL_NAMES calibrator insta360_normalize mp4_join)
 set(MAIN_NAME camerainfo) # This is arbitary

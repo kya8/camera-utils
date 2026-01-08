@@ -8,9 +8,6 @@ endif()
 
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(X_VCPKG_APPLOCAL_DEPS_INSTALL ON) # let vcpkg install dependencies with install()
-#set(CMAKE_TOOLCHAIN_FILE "xxx/scripts/buildsystems/vcpkg.cmake")
-#set(VCPKG_OVERLAY_TRIPLETS "/path/of/custom-triplets")
-#set(VCPKG_TARGET_TRIPLET   "custom-triplet-name")
 
 project(camera-utils
 LANGUAGES CXX
