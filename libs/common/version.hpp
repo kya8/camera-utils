@@ -15,5 +15,8 @@ extern const char* const COMPILER_VERSION;
 extern const char* const HOST_OS;
 extern const char* const HOST_HOSTNAME;
 
-} // namespace version
+void print_info() noexcept;
+
+} // namespace camera_utils::version
+
 #endif /* VERSION_HPP_DC3379DB_02A4_4B9E_8DD4_31182D0D9511 */

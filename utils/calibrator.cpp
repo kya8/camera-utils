@@ -143,8 +143,8 @@ try
 
         if (!arg_status) {
             using namespace camera_utils::version;
-            cerr << "Usage: calibrator <dir> <rows> <cols> [-e EXT] [-i] [-k3] [-s] [-d] [-r FILE] [-o FILE]\n"
-                 << "Version: " << COMMIT_HASH << ", " << COMMIT_DATE << '\n';
+            cerr << "Usage: calibrator <dir> <rows> <cols> [-e EXT] [-i] [-k3] [-s] [-d] [-r FILE] [-o FILE]\n";
+            print_info();
             return 2;
         }
 

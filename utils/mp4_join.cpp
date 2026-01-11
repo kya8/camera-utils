@@ -33,7 +33,7 @@ int main_mp4_join(int argc, char** argv) noexcept
 
         if (print_version) {
             using namespace camera_utils::version;
-            std::printf("Version %s, %s\n", COMMIT_HASH, COMMIT_DATE);
+            print_info();
             return 0;
         }
         if (err_flag || !output || inputs.size() < 2) {

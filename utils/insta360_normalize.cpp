@@ -404,8 +404,7 @@ struct Cfg {
 
         if (print_version && args_ok) {
             using namespace camera_utils::version;
-            cout << "Version " << COMMIT_HASH << ", " << COMMIT_DATE << '\n'
-                 << "Build type " << BUILD_TYPE << ", " << TARGET_OS << " " << TARGET_ARCH << '\n';
+            print_info();
             return 0;
         }
 

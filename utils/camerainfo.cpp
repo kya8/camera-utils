@@ -64,7 +64,7 @@ int main_camerainfo(int argc, char** argv) noexcept
 
     if (print_version) {
         using namespace camera_utils::version;
-        cout << "Version " << COMMIT_HASH << ", " << COMMIT_DATE << endl;
+        print_info();
         return 0;
     }
 

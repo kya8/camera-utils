@@ -71,6 +71,7 @@ configure_file(cmake/version.cpp.in ${GENERATED_SOURCE_DIR}/version.cpp @ONLY)
 add_library(common STATIC
 ${COMMON_DIR}/range.hpp
 ${COMMON_DIR}/version.hpp ${GENERATED_SOURCE_DIR}/version.cpp
+${COMMON_DIR}/version_print.cpp
 ${COMMON_DIR}/ThreadPool.hpp ${COMMON_DIR}/ThreadPoolFwd.hpp
 ${COMMON_DIR}/conqueue.h
 ${COMMON_DIR}/timer.hpp ${COMMON_DIR}/tuple_utils.hpp ${COMMON_DIR}/helper_templates.hpp
