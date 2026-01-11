@@ -6,12 +6,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 defaults:
   run:
     shell: bash
@@ -19,6 +13,10 @@ defaults:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    
+    env:
+      VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
+      vcpkg_cache_dir: "${{ github.workspace }}/vcpkg_binary_cache"
 
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
@@ -42,6 +40,12 @@ jobs:
       with:
         fetch-depth: 0
         fetch-tags: true
+    
+    - name: Cache deps built with vcpkg
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.vcpkg_cache_dir }}
+        key: vcpkg-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
     - name: Set reusable strings
       # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
@@ -51,19 +55,22 @@ jobs:
 
     - name: Configure CMake
       run: >
-        cmake -S ${{ github.workspace }} -G Ninja
-        -B ${{ steps.strings.outputs.build_dir }}
+        mkdir -p "${vcpkg_cache_dir}"
+
+        cmake -S '${{ github.workspace }}' -G Ninja
+        -B '${{ steps.strings.outputs.build_dir }}'
         -D CMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -D CMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
         ${{ matrix.cmake_extra_flags }}
 
     - name: Build and install
       run: |
-        cmake --build ${{ steps.strings.outputs.build_dir }}
-        cmake --install ${{ steps.strings.outputs.build_dir }} --strip --prefix root
+        cd "${{ steps.strings.outputs.build_dir }}"
+        cmake --build .
+        cpack
 
     - uses: actions/upload-artifact@v4
       with:
-        name: camera-utils-${{ github.sha }}-${{ matrix.os }}
+        name: camera-utils-${{ github.sha }}-${{ runner.os }}_${{ runner.arch }}
         path: |
-          root/bin
+          ${{ steps.strings.outputs.build_dir }}/*.tar.*
