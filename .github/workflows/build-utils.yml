@@ -19,8 +19,7 @@ jobs:
       vcpkg_cache_dir: "${{ github.workspace }}/vcpkg_binary_cache"
 
     strategy:
-      # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
-      fail-fast: false
+      fail-fast: true
 
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -38,6 +37,7 @@ jobs:
 
     - uses: actions/checkout@v4
       with:
+        # required for generating version
         fetch-depth: 0
         fetch-tags: true
     
@@ -48,10 +48,16 @@ jobs:
         key: vcpkg-deps-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
     - name: Set reusable strings
-      # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
       id: strings
       run: |
         echo "build_dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+    - name: Set up MSVC environment on Windows
+      # Required for CMake generators other than MSBuild
+      if: ${{ runner.os == 'Windows' }}
+      uses: TheMrMilchmann/setup-msvc-dev@v4
+      with:
+        arch: x64
 
     - name: Configure CMake
       run: >
@@ -74,3 +80,4 @@ jobs:
         name: camera-utils-${{ github.sha }}-${{ runner.os }}_${{ runner.arch }}
         path: |
           ${{ steps.strings.outputs.build_dir }}/*.tar.*
+        compression-level: 0  # Already compressed
