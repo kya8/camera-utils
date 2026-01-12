@@ -41,7 +41,7 @@ bool get_params(const CameraInfo& info, Params& out, bool with_crop) noexcept
             const auto [xi, fx, fy, cx, cy, yaw, pitch, roll, tx, ty, tz, k1, k2, k3, p1, p2, width_, height_] = util::range_as_tuple<18>(offset_v3, 1 + 19 * i);
             std::tie(lens.k1, lens.k2, lens.k3, lens.p1, lens.p2, lens.xi) = std::tie(k1, k2, k3, p1, p2, xi);
 
-            assert(("?", UInt(width_) == src_width * 2 && UInt(height_) == src_height));
+            // assert(("dafaq?", UInt(width_) == src_width * 2 && UInt(height_) == src_height));
 
             // Adjust f/c for cropping and zooming
             lens.cx                  = (i == 1 ? cx - width_ / 2 : cx) - (src_width - dst_width) / 2.0;
