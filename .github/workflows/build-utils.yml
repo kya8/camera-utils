@@ -15,8 +15,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     
     env:
-      VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite"
-      vcpkg_cache_dir: "${{ github.workspace }}/vcpkg_binary_cache"
+      VCPKG_BINARY_SOURCES: "clear" # Disable binary caching, since we cache exports ourselves
+      vcpkg_exports: "${{ github.workspace }}/vcpkg_exports"
 
     strategy:
       fail-fast: true
@@ -45,11 +45,12 @@ jobs:
         fetch-tags: true
     
     - name: Cache deps built with vcpkg
+      id: cache-exports
       uses: actions/cache@v4
       with:
-        path: ${{ env.vcpkg_cache_dir }}
+        path: ${{ env.vcpkg_exports }}
         # Cache invalidation factors: vcpkg triplet, changes to vcpkg.json or vcpkg-configuration.json
-        key: vcpkg-deps-${{ matrix.vcpkg_triplet }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+        key: vcpkg-export-${{ matrix.vcpkg_triplet }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
     - name: Set reusable strings
       id: strings
@@ -63,20 +64,27 @@ jobs:
       with:
         arch: x64
 
+    - name: Install and export deps if cache not hit
+      if: steps.cache-exports.outputs.cache-hit != 'true'
+      run: |
+        mkdir -p "${{ env.vcpkg_exports }}"
+        vcpkg install --triplet=${{ matrix.vcpkg_triplet }}
+        vcpkg export --triplet=${{ matrix.vcpkg_triplet }} --raw --output-dir="${{ env.vcpkg_exports }}" --output=deps
+
     - name: Configure CMake
       run: >
-        mkdir -p "${vcpkg_cache_dir}"
-
-        cmake -S '${{ github.workspace }}' -G Ninja
+        cmake -G Ninja
+        -S '${{ github.workspace }}'
         -B '${{ steps.strings.outputs.build_dir }}'
         -D CMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -D CMAKE_TOOLCHAIN_FILE="${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        -D CMAKE_TOOLCHAIN_FILE="${vcpkg_exports}/deps/scripts/buildsystems/vcpkg.cmake"
+        -D VCPKG_MANIFEST_MODE=0
         -D VCPKG_TARGET_TRIPLET=${{ matrix.vcpkg_triplet }}
         ${{ matrix.cmake_extra_flags }}
 
     - name: Build and install
+      working-directory: ${{ steps.strings.outputs.build_dir }}
       run: |
-        cd "${{ steps.strings.outputs.build_dir }}"
         cmake --build .
         cpack
 
