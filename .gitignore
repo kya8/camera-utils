@@ -3,10 +3,10 @@ out/
 **/vcpkg_installed
 vcpkg
 CMakeSettings.json
+CMakeUserPresets.json
 
 .vscode
 .idea
 .vs/
 
 **/.DS_Store
-
