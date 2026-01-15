@@ -4,12 +4,14 @@
 #include <vector>
 #include <thread> // hardware_concurrency
 #include <algorithm>
-#include <cstdlib>
-#include <cerrno>
+#include <charconv>
 #include <cassert>
 #include <string_view>
 #include <fstream>
 #include <ctime>
+#include <utility>
+#include <optional>
+#include <atomic>
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/calib3d.hpp>
@@ -33,18 +35,63 @@ using range::make_index;
 
 namespace {
 
-std::vector<std::vector<cv::Point2f>>
-detect_corners(const std::vector<fs::path>& imgs_path, int rows, int cols, bool invert, bool sb, bool draw) noexcept // detection of corners is allowed to fail
+auto& get_pool() noexcept
 {
-    std::vector<std::vector<cv::Point2f>> result(imgs_path.size());
-
-    ThreadPool<void> tp(
-        [] {
+    static ThreadPool<void> pool(
+        []{
             const auto n = std::thread::hardware_concurrency();
             if (n > 0) return std::min(n, 16u);
             return 8u;
         }()
     );
+    return pool;
+}
+
+std::optional<cv::Size> detect_checkerboard_size(const cv::Mat& img) noexcept
+{
+    static constexpr int size_min = 4;
+    static constexpr int size_max = 20;
+    std::atomic<bool> found{false};
+    std::atomic<bool> multiple_found{false};
+    cv::Size result{};
+    auto& tp = get_pool();
+    for (auto rows = size_max; rows >= size_min; --rows) {
+        for (auto cols = rows; cols >= size_min; --cols) { // Skip duplicate sizes (e.g., 7x5 and 5x7)
+            tp.enqueue(
+                [&, rows, cols] {
+                    if (found.load(std::memory_order_acquire)) {
+                        return;
+                    }
+                    std::vector<cv::Point2f> out;
+                    if (cv::findChessboardCorners(img, {cols, rows}, out)) {
+                        // Multiple threads could reach here and each find corners sucessfully.
+                        bool expected = false;
+                        if (!found.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+                            // Already found for another size. This is considered a failure.
+                            multiple_found.store(true, std::memory_order_relaxed);
+                            return;
+                        }
+                        result = {cols, rows};
+                        found.store(true, std::memory_order_release);
+                    }
+                }
+            );
+        }
+    }
+
+    tp.wait_all();
+    if (found.load(std::memory_order_relaxed) && !multiple_found.load(std::memory_order_relaxed)) {
+        return result;
+    }
+    return std::nullopt;
+}
+
+std::vector<std::vector<cv::Point2f>>
+detect_corners(const std::vector<fs::path>& imgs_path, cv::Size pattern_size, bool invert, bool sb, bool draw) noexcept // detection of corners is allowed to fail
+{
+    std::vector<std::vector<cv::Point2f>> result(imgs_path.size());
+
+    auto& tp = get_pool();
 
     for (const auto i : make_index(imgs_path.size())) {
         tp.enqueue(
@@ -60,8 +107,8 @@ detect_corners(const std::vector<fs::path>& imgs_path, int rows, int cols, bool 
 
                 //if (!cv::findChessboardCorners(img_mono, {cols, rows}, result[i])) {
                 if (!(sb ?
-                      cv::findChessboardCornersSB(img_mono, {cols, rows}, result[i], cv::CALIB_CB_EXHAUSTIVE, cv::noArray())
-                      : cv::findChessboardCorners(img_mono, {cols, rows}, result[i]))) {
+                      cv::findChessboardCornersSB(img_mono, pattern_size, result[i], cv::CALIB_CB_EXHAUSTIVE, cv::noArray())
+                      : cv::findChessboardCorners(img_mono, pattern_size, result[i]))) {
                     result[i].clear();
                     return;
                 }
@@ -69,7 +116,7 @@ detect_corners(const std::vector<fs::path>& imgs_path, int rows, int cols, bool 
                 if (!sb)
                     cv::cornerSubPix(img_mono, result[i], {11, 11}, {-1, -1}, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::MAX_ITER, 30, 0.0001));
                 if (draw) {
-                    cv::drawChessboardCorners(img, {rows, cols}, result[i], true);
+                    cv::drawChessboardCorners(img, pattern_size, result[i], true);
                     auto out = imgs_path[i];
                     out.replace_filename(imgs_path[i].stem() += "_detected.jpg");
                     cv::imwrite(out.string(), img);
@@ -82,6 +129,38 @@ detect_corners(const std::vector<fs::path>& imgs_path, int rows, int cols, bool 
     return result;
 }
 
+template<typename T>
+bool parse(std::string_view sv, T& val) noexcept
+{
+    const auto res = std::from_chars(sv.data(), sv.data() + sv.size(), val);
+    return res.ec == std::errc{} && res.ptr == sv.data() + sv.size();
+}
+
+const auto& help_text =
+R"^^(calibrator: Utility to calibrate camera using chessboard patterns.
+
+Usage: calibrator <INPUT> [--size ROWSxCOLS] [OPTIONS...]
+
+Positional arguments:
+  INPUT             Directory containing chessboard images for calibration.
+                    Or, if -D is specified, a single image file to detect checkerboard size.
+
+Options:
+  --size ROWSxCOLS  Specify the number of inner corners per a chessboard row and column.
+                    If not specified, the program will attempt to determine the grid size
+                    from the first image, using a grid search.
+  -D                Detect and print the checkerboard size from the given INPUT image and exit.
+  -e EXT            Specify the image file extension to look for (e.g., jpg, png).
+                    If not specified, the program will try to guess one.
+  -i                Invert the images before processing (useful if chessboard has black borders).
+  -k3               Use k3 distortion coeff. Otherwise k3 is fixed at 0.
+  -s                Use the more robust findChessboardCornersSB() for corner detection.
+  -d                Draw and save detected corners on images.
+  -r FILE           Output a calibration report to FILE.
+  -V                Display version information.
+  -h                Display this help message.
+)^^";
+
 } // namespace
 
 
@@ -90,62 +169,91 @@ try
 {
     using std::cout, std::cerr;
 
-    fs::path dir, img_ext, report, out_brief;
-    int rows, cols;
+    fs::path dir, img_ext, report;
+    std::optional<cv::Size> pattern_size;
     bool invert = false; // findChessboardCorners() requires white borders
     bool use_k3 = false;
     bool corner_sb = false;
     bool draw_corners = false;
+    bool detect_size = false;
+    bool print_version = false;
+    bool print_help = false;
     {
         const bool arg_status = [&] {
-            if (argc < 4) return false;
+            if (argc < 2)
+                return false;
 
-            dir = argv[1];
-
-            char* e1, *e2;
-            errno = 0;
-            rows = std::strtol(argv[2], &e1, 10);
-            cols = std::strtol(argv[3], &e2, 10);
-            if (e1 == argv[2] || e2 == argv[3] || errno || rows <= 0 || cols <= 0) return false;
-
-            for (int i = 4; i < argc; ++i) {
+            for (int i = 1; i < argc; ++i) {
                 const auto opt = std::string_view{argv[i]};
                 if (opt == "-i") {
                     invert = true;
                 }
                 else if (opt == "-k3") {
                     use_k3 = true;
-                }
-                else if (opt == "-s") {
+                } else if (opt == "-s") {
                     corner_sb = true;
-                }
-                else if (opt == "-d") {
+                } else if (opt == "-d") {
                     draw_corners = true;
-                }
-                else if (opt == "-e") {
+                } else if (opt == "-D") {
+                    detect_size = true;
+                } else if (opt == "-e") {
                     if (i + 1 == argc) return false;
                     img_ext = argv[++i];
-                }
-                else if (opt == "-r") {
+                } else if (opt == "-r") {
                     if (i + 1 == argc) return false;
                     report = argv[++i];
-                }
-                else if (opt == "-o") {
+                } else if (opt == "--size") {
                     if (i + 1 == argc) return false;
-                    out_brief = argv[++i];
-                }
-                else {
-                    return false;
+                    const auto s = std::string_view{argv[++i]};
+                    const auto x_pos = s.find('x');
+                    if (x_pos == std::string_view::npos) return false;
+                    int rows, cols;
+                    if (!parse(s.substr(0, x_pos), rows) || !parse(s.substr(x_pos + 1), cols)) {
+                        return false;
+                    }
+                    pattern_size.emplace(cols, rows);
+                } else if (opt == "-V") {
+                    print_version = true;
+                    break;
+                } else if (opt == "-h") {
+                    print_help = true;
+                    break;
+                } else { // positional arg
+                    if (!dir.empty()) {
+                        return false;
+                    }
+                    dir = opt;
                 }
             }
-            return true;
+            return !dir.empty() || print_help || print_version;
         }();
 
         if (!arg_status) {
-            using namespace camera_utils::version;
-            cerr << "Usage: calibrator <dir> <rows> <cols> [-e EXT] [-i] [-k3] [-s] [-d] [-r FILE] [-o FILE]\n";
-            print_info();
+            cerr << "Invalid parameters.\nPass -h for help.\n";
             return 2;
+        }
+        
+        if (print_help) {
+            cout << help_text;
+            return 0;
+        }
+
+        if (print_version) {
+            using namespace camera_utils::version;
+            print_info();
+            return 0;
+        }
+
+        if (detect_size) {
+            const auto input_file = dir.string();
+            const auto input_image = cv::imread(input_file);
+            if (!input_image.empty() && (pattern_size = detect_checkerboard_size(input_image))) {
+                cout << "Autodetected checkerboard size: " << pattern_size->height << "x" << pattern_size->width << '\n';
+                return 0;
+            } else {
+                cerr << "Could not autodetect checkerboard size from image: " << input_file << '\n';
+                return 1;
+            }
         }
 
         if (invert) {
@@ -158,7 +266,6 @@ try
             cout << "Using sb detection!\n";
         }
 
-        if (!out_brief.empty()) out_brief = dir / out_brief;
         if (!report.empty()) report = dir / report;
     }
 
@@ -173,7 +280,26 @@ try
         return 1;
     }
 
-    auto corners = detect_corners(images, rows, cols, invert, corner_sb, draw_corners);
+    cv::Size image_size;
+    {
+        const auto sample_img = cv::imread(images.front().string());
+        if (sample_img.empty()) {
+            cerr << "Could not read image\n";
+            return 1;
+        }
+        image_size = {sample_img.cols, sample_img.rows};
+
+        if (!pattern_size) {
+            pattern_size = detect_checkerboard_size(sample_img);
+            if (!pattern_size) {
+                cerr << "Could not autodetect checkerboard size\n";
+                return 1;
+            }
+            cout << "Autodetected checkerboard size: " << pattern_size->height << "x" << pattern_size->width << '\n';
+        }
+    }
+
+    auto corners = detect_corners(images, *pattern_size, invert, corner_sb, draw_corners);
     assert(images.size() == corners.size());
     const auto nb_input_images = (int)images.size();
 
@@ -198,18 +324,14 @@ try
     const float square_size = 0.05f; // may be configurable
     const auto object_points = [&] {
         std::vector<cv::Point3f> pts;
-        for (int i = 0; i < rows; ++i) {
-            for (int j = 0; j < cols; ++j) {
+        for (int i = 0; i < pattern_size->height; ++i) {
+            for (int j = 0; j < pattern_size->width; ++j) {
                 pts.emplace_back(j * square_size, i * square_size, 0.0f);
             }
         }
         return std::vector(corners.size(), pts);
     }();
 
-    const cv::Size image_size = [&] { // (W, H)
-        const auto img = cv::imread(images.front().string());
-        return cv::Size{img.cols, img.rows};
-    }();
     cv::Mat camera_matrix;
     std::vector<double> distortion_coef(5, 0.0); // k1, k2, p1, p2, k3
     //std::vector<cv::Mat> rvecs, tvecs;
@@ -250,7 +372,7 @@ try
         ofs << std::boolalpha;
         ofs << "# Calibrator report generated at: " << datetime << '\n'
             << "# Image directory: " << dir << '\n'
-            << "# Rows / Cols: " << rows << " / " << cols << '\n'
+            << "# Rows x Cols: " << pattern_size->height << " x " << pattern_size->width << '\n'
             << "# Invert: " << invert << '\n'
             << "# k3: " << use_k3 << '\n'
             << "# Detection method: " << (corner_sb ? 1 : 0) << "\n"
@@ -274,17 +396,6 @@ try
         for (const auto i : make_index(images.size())) {
             ofs << images[i].string() << ": " << per_view_error[i] << '\n';
         }
-    }
-
-    if (!out_brief.empty()) {
-        std::ofstream ofs(out_brief);
-        if (!ofs) {
-            cerr << "Failed to open output file: " << out_brief << '\n';
-            return 1;
-        }
-        ofs << cv::format(camera_matrix, cv::Formatter::FMT_CSV)
-            << cv::format(distortion_coef, cv::Formatter::FMT_CSV) << '\n'
-            << image_size.width << ", " << image_size.height << '\n';
     }
 
     return 0;
