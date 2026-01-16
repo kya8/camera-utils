@@ -107,7 +107,7 @@ detect_corners(const std::vector<fs::path>& imgs_path, cv::Size pattern_size, bo
 
                 //if (!cv::findChessboardCorners(img_mono, {cols, rows}, result[i])) {
                 if (!(sb ?
-                      cv::findChessboardCornersSB(img_mono, pattern_size, result[i], cv::CALIB_CB_EXHAUSTIVE, cv::noArray())
+                      cv::findChessboardCornersSB(img_mono, pattern_size, result[i], cv::CALIB_CB_EXHAUSTIVE + cv::CALIB_CB_NORMALIZE_IMAGE, cv::noArray())
                       : cv::findChessboardCorners(img_mono, pattern_size, result[i]))) {
                     result[i].clear();
                     return;
