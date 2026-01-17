@@ -293,15 +293,16 @@ struct Strikethrough  {
     static constexpr auto reset = digits<29>();
 };
 
+} // namespace tc
 
 // std::format support
 #if defined(__cpp_lib_format)
 template<int N>
-struct std::formatter<FixedString<N>> { // it shouldn't consume any format-spec
+struct std::formatter<tc::FixedString<N>> { // it shouldn't consume any format-spec
     constexpr auto parse(const std::format_parse_context& ctx) const noexcept {
         return ctx.begin();
     }
-    constexpr auto format(const FixedString<N>& arg, std::format_context& ctx) const {
+    constexpr auto format(const tc::FixedString<N>& arg, std::format_context& ctx) const {
         auto it = ctx.out();
         for (const auto& c : arg) {
             (*it++) = c;
@@ -311,8 +312,8 @@ struct std::formatter<FixedString<N>> { // it shouldn't consume any format-spec
 };
 
 template<typename T, typename ...Impl>
-struct std::formatter<OutputWrapper<T, Impl...>> : std::formatter<T> { // Use spec-parsing for T
-    constexpr auto format(const OutputWrapper<T, Impl...>& arg, std::format_context& ctx) const {
+struct std::formatter<tc::OutputWrapper<T, Impl...>> : std::formatter<T> { // Use spec-parsing for T
+    constexpr auto format(const tc::OutputWrapper<T, Impl...>& arg, std::format_context& ctx) const {
         auto it = ctx.out();
         for (const auto& c : arg.seq) {
             (*it++) = c;
@@ -327,10 +328,10 @@ struct std::formatter<OutputWrapper<T, Impl...>> : std::formatter<T> { // Use sp
 };
 
 template<typename T, typename F, typename ...Impl>
-struct std::formatter<ConditionalOutputWrapper<T, F, Impl...>> : std::formatter<OutputWrapper<T, Impl...>> {
-    constexpr auto format(const ConditionalOutputWrapper<T, F, Impl...>& arg, std::format_context& ctx) const {
+struct std::formatter<tc::ConditionalOutputWrapper<T, F, Impl...>> : std::formatter<tc::OutputWrapper<T, Impl...>> {
+    constexpr auto format(const tc::ConditionalOutputWrapper<T, F, Impl...>& arg, std::format_context& ctx) const {
         if (arg.cond()) {
-            return std::formatter<OutputWrapper<T, Impl...>>::format(arg, ctx);
+            return std::formatter<tc::OutputWrapper<T, Impl...>>::format(arg, ctx);
         } else {
             return std::formatter<T>::format(arg.inner, ctx);
         }
@@ -338,6 +339,5 @@ struct std::formatter<ConditionalOutputWrapper<T, F, Impl...>> : std::formatter<
 };
 #endif
 
-} // namespace tc
 
 #endif /* TERMCOLOR_HPP_A73B5B43_1C3B_42A8_B5BC_9AED37F243C5 */

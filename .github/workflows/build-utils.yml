@@ -2,7 +2,7 @@ name: Build utils
 
 on:
   push:
-    branches: [ "main", "ci" ]
+    branches: [ "main", "dev", "dev-*", "ci" ]
   pull_request:
   workflow_dispatch:
 
