@@ -19,7 +19,7 @@ jobs:
       vcpkg_exports: "${{ github.workspace }}/vcpkg_exports"
 
     strategy:
-      fail-fast: true
+      fail-fast: false
 
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
