@@ -1,7 +1,8 @@
 #include "camera_utils.hpp"
 #include <string_view>
 #include <filesystem>
-#include <iostream>
+#include <print>
+#include <ranges>
 
 // Multi-call binary
 
@@ -31,10 +32,10 @@ int main(int argc, char** argv)
         }
     }
 
-    std::cerr << "Unknown command: '" << name << "'. Available commands are:\n";
-    for (const auto& fn : main_fns) {
-        std::cerr << fn.name << '\n';
-    }
+    std::print(stderr, "Unknown program name: {}. Valid names are: {:n:s}\n",
+               name,
+               main_fns | std::views::transform([](const auto& fn) { return fn.name; })
+               );
 
     return 2;
 }
