@@ -69,7 +69,7 @@ CameraInfo::describe() const noexcept
 
     ret << "Extra info: " << extras.size();
 
-    return ret.str();
+    return std::move(ret).str();
 }
 
 } // namespace caminfo
