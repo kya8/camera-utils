@@ -1,7 +1,7 @@
 #include "camera_utils.hpp"
 #include "caminfo.hpp"
-#include <iostream>
-#include <iomanip>
+#include <print>
+#include <ostream>
 #include "timer.hpp"
 #include <cstring>
 #include <string>
@@ -16,8 +16,6 @@ using namespace caminfo;
 
 int main_camerainfo(int argc, char** argv) noexcept
 {
-    using std::cout, std::endl;
-
     std::vector<const char*> files;
     bool metadata_only = false;
     bool dump_gyro = false;
@@ -57,7 +55,7 @@ int main_camerainfo(int argc, char** argv) noexcept
         }
 
         if (err_flag || (files.empty() && !print_version)) {
-            cout << "Usage: camerainfo <video_files> [-l <max_vec_length>] [-m] [-dg] [-dq] [-V]" << endl;
+            std::println("Usage: camerainfo <video_files> [-l <max_vec_length>] [-m] [-dg] [-dq] [-V]");
             return 2;
         }
     }
@@ -70,38 +68,38 @@ int main_camerainfo(int argc, char** argv) noexcept
 
     util::Timer timer;
     const bool stdout_is_colorterm = sys::is_colorterm(stdout);
-    cout << std::left;
     for (const auto i : range::make_index(files.size())) {
         const auto& file = files[i];
         timer.tic();
         const auto info = detect(file, metadata_only);
         const auto time_detect = timer.toc();
 
-        if (i > 0) cout << '\n';
+        if (i > 0) std::putchar('\n');
         if (stdout_is_colorterm)
-            cout << "\033[1;32m" << file << "\033[0m";
+            std::print("\033[1;32m{}\033[0m", file);
         else
-            cout << file;
+            std::print("{}", file);
         if (info)
-            cout << ": Done in " << time_detect * 1e3 << " ms\n";
+            std::print(": Done in {:.3f} ms\n", time_detect * 1e3);
         else
-            cout << ": Failed to extract data, or input file is invalid.\n";
+            std::print(": Failed to extract data, or input file is invalid.\n");
 
         if (info) {
             static constexpr auto width = 30;
-            cout << std::setw(width) << "Camera Vendor" << ": " << get_vendor_name(info->vendor) << '\n';
-            // cout << std::setw(width) << "Model"  << ": " << info->model                 << '\n';
-            // cout << std::setw(width) << "SN"     << ": " << info->SN                    << '\n';
+            std::print("{:<{}}: {}\n", "Camera Vendor", width, get_vendor_name(info->vendor));
+
             for (const auto& [group, map] : info->extras) {
-                if (stdout_is_colorterm) cout << "\033[33m";
-                cout << "<Group: " << get_group_id_string(group) << ">\n";
-                if (stdout_is_colorterm) cout << "\033[0m";
+                if (stdout_is_colorterm)
+                    std::print("\033[33m");
+                std::print("<Group: {}>\n", get_group_id_string(group));
+                if (stdout_is_colorterm)
+                    std::print("\033[0m" );
                 for (const auto& [key, value] : map) {
                     if (stdout_is_colorterm)
-                        cout << "  \033[36m" << std::setw(width - 2) << key_to_string(key) << "\033[0m";
+                        std::print("  \033[36m{:<{}}\033[0m", key_to_string(key), width - 2);
                     else
-                        cout << "  " << std::setw(width - 2) << key_to_string(key);
-                    cout << ": " << var_to_string(value, max_vec_len) << '\n';
+                        std::print("  {:<{}}", key_to_string(key), width - 2);
+                    std::print(": {}\n", var_to_string(value, max_vec_len));
                 }
             }
 
@@ -110,11 +108,11 @@ int main_camerainfo(int argc, char** argv) noexcept
                 const auto gyro = info->extras.get<types::GyroVec>(GroupId::SensorData, KeyId::GyroData);
                 if (gyro) {
                     std::ofstream ofs(std::string(file) + "_gyro.txt");
-                    ofs.precision(17);
+                    // ofs.precision(17);
                     if (ofs) {
-                        ofs << "time, gyro_x, gyro_y, gyro_z\n";
-                        for (const auto& [t, x, y, z] : *gyro) {
-                            ofs << t << ", " << x << ", " << y << ", " << z << '\n';
+                        std::println(ofs, "time, gyro_x, gyro_y, gyro_z");
+                        for (const auto& entry : *gyro) {
+                            std::println(ofs, "{:n}", entry); // std::format defaults to round-trip format for FP
                         }
                     }
                 }
@@ -123,11 +121,10 @@ int main_camerainfo(int argc, char** argv) noexcept
                 const auto quat = info->extras.get<types::QuaternionVec>(GroupId::SensorData, KeyId::CameraQuaternionData);
                 if (quat) {
                     std::ofstream ofs(std::string(file) + "_quat.txt");
-                    ofs.precision(17);
                     if (ofs) {
-                        ofs << "qx, qy, qz, qw\n";
-                        for (const auto& [x, y, z, w] : *quat) {
-                            ofs << x << ", " << y << ", " << z << ", " << w << '\n';
+                        std::println(ofs, "qx, qy, qz, qw");
+                        for (const auto& entry : *quat) {
+                            std::println(ofs, "{:n}", entry);
                         }
                     }
                 }
