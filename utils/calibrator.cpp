@@ -37,7 +37,7 @@ namespace {
 
 auto& get_pool() noexcept
 {
-    static ThreadPool<void> pool(
+    static ThreadPool pool(
         []{
             const auto n = std::thread::hardware_concurrency();
             if (n > 0) return std::min(n, 16u);

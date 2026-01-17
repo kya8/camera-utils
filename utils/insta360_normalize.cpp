@@ -260,7 +260,7 @@ struct Cfg {
         return !err_flag;
     }
 
-    bool process_dir(int lens_id, const caminfo::insta360::Params& params, ThreadPool<void>& pool) noexcept try
+    bool process_dir(int lens_id, const caminfo::insta360::Params& params, ThreadPool& pool) noexcept try
     {
         if (mode) lens_id = 0;
         const auto& lens = params.lens[lens_id];
@@ -489,7 +489,7 @@ struct Cfg {
             return 1;
         }
 
-        const auto pool = std::make_unique<ThreadPool<void>>([&]{
+        const auto pool = std::make_unique<ThreadPool>([&]{
             if (nb_threads > 0) return nb_threads;
             const auto n = std::thread::hardware_concurrency();
             return n? n : 8u;

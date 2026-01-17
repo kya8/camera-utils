@@ -1,33 +1,26 @@
 #ifndef THREAD_POOL_HPP_FE77F15C_8C2D_411A_8D40_2AA77362894A
 #define THREAD_POOL_HPP_FE77F15C_8C2D_411A_8D40_2AA77362894A
 
-#include <future>
+#include <functional>
 #include <vector>
 #include <deque>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include <exception>
 #include "ThreadPoolFwd.hpp"
 
 /**
  * TODO:
  *
- * - Currently, std::packaged_task is used for type-erased task storage, and per-task future management.
- *   It has quite some overhead if futures aren't required.
- *   Ideally, we want to use std::move_only_function here.
- *   Also, provide a template parameter to select between task storage at compile time.
+ * - Provide a template parameter to select between task storage at compile time.
  *
  * - Use a template parameter to specialize unbounded / bounded task queue.
  *   A ring buffer should be used for the bounded case.
  *   Currently we always use a dequeue, with optional runtime limit on its size.
  */
 
-template<typename R>
 class ThreadPool {
 public:
-    using ReturnType = R;
-
     ThreadPool(std::size_t nb_threads, std::size_t max_jobs = 0) noexcept;
 
     /**
@@ -63,26 +56,12 @@ public:
     void wait_all() noexcept;
 
     /**
-     * Enqueue task and receive a future.
+     * Enqueue a task
+     * 
+     * @return Returns `false` if pool is stopped
      */
     template<typename F>
-    [[nodiscard]] auto submit(F&& f);
-
-    /**
-     * Enqueue task without getting a future.
-     */
-    template<typename F>
-    void enqueue(F&& f);
-
-    /* Exception throwed when enqueuing on a stopping or stopped pool */
-    class EnqueueBlocked : public std::exception {
-    public:
-        const char* what() const noexcept override
-        {
-            return "Cannot enqueue on stopped thread pool.";
-        }
-    };
-
+    bool enqueue(F&& f) noexcept;
 
 private:
     std::vector<std::thread> workers;
@@ -97,10 +76,10 @@ private:
     std::condition_variable cond_enqueue;
     std::size_t max_jobs;
 
-    using TaskT = std::packaged_task<R()>;
+    // move_only_function is used for type-erased task storage.
+    // It has lower overhead, and allows non-copyable tasks.
+    using TaskT = std::move_only_function<void() &>;
     std::deque<TaskT> tasks;
-
-    void enqueue_task(TaskT&& task);
 
     void worker_loop()
     {
@@ -132,8 +111,7 @@ private:
     }
 };
 
-template<typename R>
-inline ThreadPool<R>::ThreadPool(std::size_t N, std::size_t max_jobs_) noexcept : max_jobs(max_jobs_)
+inline ThreadPool::ThreadPool(std::size_t N, std::size_t max_jobs_) noexcept : max_jobs(max_jobs_)
 {
     for (std::size_t i = 0; i < N; ++i) {
         workers.emplace_back( [this] {
@@ -142,9 +120,8 @@ inline ThreadPool<R>::ThreadPool(std::size_t N, std::size_t max_jobs_) noexcept 
     }
 }
 
-template<typename R>
 template<typename F>
-inline ThreadPool<R>::ThreadPool(const F& init_fn, std::size_t N, std::size_t max_jobs_) noexcept : max_jobs(max_jobs_)
+inline ThreadPool::ThreadPool(const F& init_fn, std::size_t N, std::size_t max_jobs_) noexcept : max_jobs(max_jobs_)
 {
     for (std::size_t i = 0; i < N; ++i) {
         workers.emplace_back( [this, init_fn] { // init_fn must be copyable
@@ -154,8 +131,7 @@ inline ThreadPool<R>::ThreadPool(const F& init_fn, std::size_t N, std::size_t ma
     }
 }
 
-template<typename R>
-inline void ThreadPool<R>::stop() noexcept
+inline void ThreadPool::stop() noexcept
 {
     {
         std::scoped_lock lk(mutex_);
@@ -165,8 +141,7 @@ inline void ThreadPool<R>::stop() noexcept
     if (max_jobs) cond_enqueue.notify_all();
 }
 
-template<typename R>
-inline void ThreadPool<R>::stop_now() noexcept
+inline void ThreadPool::stop_now() noexcept
 {
     {
         std::scoped_lock lk(mutex_);
@@ -180,8 +155,7 @@ inline void ThreadPool<R>::stop_now() noexcept
     if (max_jobs) cond_enqueue.notify_all();
 }
 
-template<typename R>
-inline ThreadPool<R>::~ThreadPool() noexcept
+inline ThreadPool::~ThreadPool() noexcept
 {
     stop();
     for (auto& worker : workers) {
@@ -189,42 +163,28 @@ inline ThreadPool<R>::~ThreadPool() noexcept
     }
 }
 
-template<typename R>
-inline void ThreadPool<R>::wait_all() noexcept
+inline void ThreadPool::wait_all() noexcept
 {
     std::unique_lock lk(mutex_);
     working_cond.wait(lk, [&] { return nb_working == 0 && tasks.empty(); });
 }
 
-template<typename R>
 template<typename F>
-inline void ThreadPool<R>::enqueue(F&& f)
+inline bool ThreadPool::enqueue(F&& f) noexcept
 {
-    enqueue_task(TaskT(std::forward<F>(f)));
-}
-
-template<typename R>
-template<typename F>
-inline auto ThreadPool<R>::submit(F&& f)
-{
-    auto task = TaskT(std::forward<F>(f));
-    auto ret  = task.get_future();
-    enqueue_task(std::move(task));
-    return ret;
-}
-
-template<typename R>
-inline void ThreadPool<R>::enqueue_task(TaskT&& task)
-{
+    TaskT task(std::forward<F>(f));
     {
         std::unique_lock lk(mutex_);
         if (max_jobs) {
             cond_enqueue.wait(lk, [&] { return (tasks.size() < max_jobs) || stop_; });
         }
-        if (stop_) throw EnqueueBlocked{};
+        if (stop_) {
+            return false;
+        }
         tasks.emplace_back(std::move(task));
     }
     cond.notify_one();
+    return true;
 }
 
 #endif /* THREAD_POOL_HPP_FE77F15C_8C2D_411A_8D40_2AA77362894A */
