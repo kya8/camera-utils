@@ -1,8 +1,11 @@
 #include "insta360_tf.hpp"
 #include <caminfo.hpp>
 #include <Eigen/Geometry>
+#include <numbers>
 
-static constexpr double d2r = EIGEN_PI / 180.0;
+using namespace std::numbers;
+
+static constexpr double d2r = pi / 180.0;
 
 namespace caminfo {
 
@@ -49,17 +52,17 @@ insta360::get_R0(const double* offset_v3, int len) noexcept
     const auto [yaw, pitch, roll] = std::tie(offset_v3[6], offset_v3[7], offset_v3[8]);
     if (len <= 21) {
         return Eigen::Matrix3d {
-            Eigen::AngleAxisd(EIGEN_PI/2 + pitch*d2r, Eigen::Vector3d::UnitY()) *
+            Eigen::AngleAxisd(pi/2 + pitch*d2r, Eigen::Vector3d::UnitY()) *
             Eigen::AngleAxisd(yaw*d2r,                Eigen::Vector3d::UnitZ()) *
             Eigen::AngleAxisd(roll*d2r,               Eigen::Vector3d::UnitX())
         };
     }
     // only for dual-lenses camera
     return Eigen::Matrix3d {
-        Eigen::AngleAxisd(EIGEN_PI/2 + pitch*d2r, Eigen::Vector3d::UnitY()) *
-        Eigen::AngleAxisd(yaw*d2r,                Eigen::Vector3d::UnitZ()) *
-        Eigen::AngleAxisd(roll*d2r,               Eigen::Vector3d::UnitX()) *
-        Eigen::AngleAxisd(EIGEN_PI,               Eigen::Vector3d::UnitZ())
+        Eigen::AngleAxisd(pi/2 + pitch*d2r, Eigen::Vector3d::UnitY()) *
+        Eigen::AngleAxisd(yaw*d2r,          Eigen::Vector3d::UnitZ()) *
+        Eigen::AngleAxisd(roll*d2r,         Eigen::Vector3d::UnitX()) *
+        Eigen::AngleAxisd(pi,               Eigen::Vector3d::UnitZ())
     };
 }
 
@@ -69,9 +72,9 @@ insta360::get_R1(const double* offset_v3, int len) noexcept
     if (len < 40) return {};
     const auto [yaw, pitch, roll] = std::tie(offset_v3[25], offset_v3[26], offset_v3[27]);
     return Eigen::Matrix3d {
-        Eigen::AngleAxisd(EIGEN_PI/2 + pitch*d2r, Eigen::Vector3d::UnitY()) *
-        Eigen::AngleAxisd(yaw*d2r,                Eigen::Vector3d::UnitZ()) *
-        Eigen::AngleAxisd(roll*d2r,               Eigen::Vector3d::UnitX())
+        Eigen::AngleAxisd(pi/2 + pitch*d2r, Eigen::Vector3d::UnitY()) *
+        Eigen::AngleAxisd(yaw*d2r,          Eigen::Vector3d::UnitZ()) *
+        Eigen::AngleAxisd(roll*d2r,         Eigen::Vector3d::UnitX())
     };
 }
 

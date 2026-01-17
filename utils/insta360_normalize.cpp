@@ -18,6 +18,9 @@
 #include "sys_utils.hpp"
 #include "fs.hpp"
 #include <termcolor.hpp>
+#include <numbers>
+
+using namespace std::numbers;
 
 namespace {
 
@@ -69,8 +72,8 @@ CvMaps get_equirectangular_map(int height, const F& proj) noexcept
 
     for (int row = 0; row < height; ++row) {
         for (int col = 0; col < width; ++col) {
-            const double lat = EIGEN_PI / 2 - EIGEN_PI * row / height;
-            const double lon = EIGEN_PI * 2 * col / width;
+            const double lat = pi / 2 - pi * row / height;
+            const double lon = pi * 2 * col / width;
             const auto uv = proj(std::cos(lat) * std::sin(lon), -std::sin(lat), std::cos(lat) * std::cos(lon));
             mapx(row, col) = static_cast<float>(uv[0]);
             mapy(row, col) = static_cast<float>(uv[1]);
@@ -98,15 +101,15 @@ CvMaps get_cubemap(int size, const F& proj) noexcept // 2*3 stacked
         // front
         {0, 0, Eigen::AngleAxisd::Identity()},
         // back
-        {1, 0, Eigen::AngleAxisd{EIGEN_PI, Eigen::Vector3d::UnitY()}},
+        {1, 0, Eigen::AngleAxisd{pi, Eigen::Vector3d::UnitY()}},
         // left
-        {0, 1, Eigen::AngleAxisd{-EIGEN_PI / 2, Eigen::Vector3d::UnitY()}},
+        {0, 1, Eigen::AngleAxisd{-pi / 2, Eigen::Vector3d::UnitY()}},
         // right
-        {1, 1, Eigen::AngleAxisd{EIGEN_PI / 2, Eigen::Vector3d::UnitY()}},
+        {1, 1, Eigen::AngleAxisd{pi / 2, Eigen::Vector3d::UnitY()}},
         // up
-        {0, 2, Eigen::AngleAxisd{EIGEN_PI / 2, Eigen::Vector3d::UnitX()}},
+        {0, 2, Eigen::AngleAxisd{pi / 2, Eigen::Vector3d::UnitX()}},
         // down
-        {1, 2, Eigen::AngleAxisd{-EIGEN_PI / 2, Eigen::Vector3d::UnitX()}}
+        {1, 2, Eigen::AngleAxisd{-pi / 2, Eigen::Vector3d::UnitX()}}
     };
 
     const auto c = (size - 1) / 2.0;
