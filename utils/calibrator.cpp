@@ -22,6 +22,7 @@
 #include <ThreadPool.hpp>
 #include <version.hpp>
 #include <ranges>
+#include <algorithm>
 
 #include "fs.hpp"
 #include <time_utils.hpp>
@@ -351,6 +352,8 @@ try
     std::print("\nOverall RMS reprojection error: {:.5f}\n", rms_error);
 
     assert(images.size() == per_view_error.size());
+    // zip sort by error
+    std::ranges::sort(std::views::zip(images, per_view_error), [](const auto& t1, const auto& t2){ return std::get<1>(t1) > std::get<1>(t2); });
     // print reproj error for each image:
     std::print("\nPer-image reprojection error:\n");
     for (const auto& [image, val] : std::views::zip(images, per_view_error)) {
