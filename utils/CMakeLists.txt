@@ -23,6 +23,10 @@ install(TARGETS camera_utils)
 
 # Install symlinks for the multi-call binary
 foreach(name IN LISTS MULTI_CALL_NAMES)
+    if(WIN32)
+        set(name ${name}.exe)
+    endif()
+
     # Create symlinks in the build tree
     add_custom_command(TARGET camera_utils POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE_NAME:camera_utils> ${name}
