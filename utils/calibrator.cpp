@@ -72,7 +72,6 @@ std::optional<cv::Size> detect_checkerboard_size(const cv::Mat& img) noexcept
                             return;
                         }
                         result = {cols, rows};
-                        found.store(true, std::memory_order_release);
                     }
                 }
             );
