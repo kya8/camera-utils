@@ -49,6 +49,7 @@ set(GENERATED_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
+find_package(Boost CONFIG REQUIRED) # circular_buffer, header-only
 
 # add some warning flags
 add_compile_options("$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-Wextra;-pedantic>")
@@ -81,7 +82,7 @@ ${COMMON_DIR}/fs.hpp ${COMMON_DIR}/fs.cpp
 ${COMMON_DIR}/builtins.h
 ${COMMON_DIR}/string_utils.hpp
 )
-target_link_libraries(common PRIVATE Threads::Threads)
+target_link_libraries(common PRIVATE Threads::Threads PUBLIC Boost::headers)
 target_include_directories(common PUBLIC ${COMMON_DIR})
 target_compile_definitions(common PRIVATE CAMERAUTILS_BUILD_TYPE=\"$<CONFIG>\")
 

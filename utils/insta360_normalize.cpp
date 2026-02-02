@@ -263,7 +263,7 @@ struct Cfg {
         return !err_flag;
     }
 
-    bool process_dir(int lens_id, const caminfo::insta360::Params& params, ThreadPool& pool) noexcept try
+    bool process_dir(int lens_id, const caminfo::insta360::Params& params, auto& pool) noexcept try
     {
         if (mode) lens_id = 0;
         const auto& lens = params.lens[lens_id];
@@ -328,6 +328,9 @@ struct Cfg {
         std::condition_variable cond;
         std::mutex mtx;
 
+        // Push work in a dedicated thread,
+        // so the main thread can proceed to terminal output.
+        std::thread push_work([&]{
         for (auto& src : image_files) {
             pool.enqueue([&, src = std::move(src)] {
                 const auto status = [&] {
@@ -368,10 +371,12 @@ struct Cfg {
                 //return status;
             });
         }
+        });
+
         for (;;) {
             {
                 std::unique_lock lk(mtx);
-                cond.wait(lk, [&] { return cnt_done > prev_done; });
+                cond.wait(lk, [&] { return cnt_done > prev_done || cnt_done == 0; });
                 prev_done = cnt_done;
             }
             std::string out {"\r"};
@@ -381,6 +386,7 @@ struct Cfg {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         pool.wait_all();
+        push_work.join();
         if (mode) cout << (mode == Equirectangular? "\nEquirectangular" : "\nCubemap");
         else cout << "\nLens " << lens_id;
         cout << " finished: " << total_images << " total, " << cnt_bad << " failed.\n";
@@ -492,18 +498,18 @@ struct Cfg {
             return 1;
         }
 
-        const auto pool = std::make_unique<ThreadPool>([&]{
+        auto pool = ThreadPool([&]{
             if (nb_threads > 0) return nb_threads;
             const auto n = std::thread::hardware_concurrency();
             return n? n : 8u;
-        }());
+        }(), 32);
 
         if (mode) {
-            process_dir(0, params, *pool);
+            process_dir(0, params, pool);
         }
         else {
-            if (!dir[0].empty()) process_dir(0, params, *pool);
-            if (!dir[1].empty() || params.joined) process_dir(1, params, *pool);
+            if (!dir[0].empty()) process_dir(0, params, pool);
+            if (!dir[1].empty() || params.joined) process_dir(1, params, pool);
         }
 
         return 0;

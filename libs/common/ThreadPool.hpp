@@ -1,59 +1,124 @@
 #ifndef THREAD_POOL_HPP_FE77F15C_8C2D_411A_8D40_2AA77362894A
 #define THREAD_POOL_HPP_FE77F15C_8C2D_411A_8D40_2AA77362894A
 
+#include "ThreadPoolFwd.hpp"
 #include <functional>
 #include <vector>
 #include <deque>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include "ThreadPoolFwd.hpp"
+#include <type_traits>
+#include <boost/circular_buffer.hpp>
+#include <concepts>
 
-/**
- * TODO:
- *
- * - Provide a template parameter to select between task storage at compile time.
- *
- * - Use a template parameter to specialize unbounded / bounded task queue.
- *   A ring buffer should be used for the bounded case.
- *   Currently we always use a dequeue, with optional runtime limit on its size.
- */
 
-class ThreadPool {
+namespace detail {
+
+template<bool Bounded>
+struct ThreadPoolBase {
+};
+
+template<>
+struct ThreadPoolBase<true> {
+    std::size_t max_jobs;
+    std::condition_variable cond_enqueue;
+};
+
+} // namespace detail
+
+
+template<bool Bounded>
+class ThreadPool : detail::ThreadPoolBase<Bounded> {
 public:
-    ThreadPool(std::size_t nb_threads, std::size_t max_jobs = 0) noexcept;
+    ThreadPool(std::size_t nb_threads, std::size_t max_jobs)
+    noexcept requires (Bounded) : detail::ThreadPoolBase<Bounded>{max_jobs}, tasks(max_jobs)
+    {
+        start_workers(nb_threads);
+    }
+
+    ThreadPool(std::size_t nb_threads)
+    noexcept requires (!Bounded)
+    {
+        start_workers(nb_threads);
+    }
 
     /**
      * Initialize workers with a custom callable.
+     * `init_fn` must be copyable.
      */
-    template<typename F>
-    ThreadPool(const F& init_fn, std::size_t nb_threads, std::size_t max_jobs) noexcept;
+    template<std::invocable F>
+    ThreadPool(const F& init_fn, std::size_t nb_threads, std::size_t max_jobs)
+    noexcept requires(Bounded) : detail::ThreadPoolBase<Bounded>{max_jobs}, tasks(max_jobs)
+    {
+        start_workers(init_fn, nb_threads);
+    }
 
-    ~ThreadPool() noexcept;
+    template<std::invocable F>
+    ThreadPool(const F& init_fn, std::size_t nb_threads)
+    noexcept requires(!Bounded)
+    {
+        start_workers(init_fn, nb_threads);
+    }
 
     // Not copiable.
     ThreadPool(const ThreadPool&) = delete;
     ThreadPool& operator=(const ThreadPool&) = delete;
-
     // Not movable.
     // If you really need to move me, wrap me inside unique_ptr.
+
+    ~ThreadPool() noexcept
+    {
+        stop();
+        for (auto& worker : workers) {
+            worker.join();
+        }
+    }
 
     /**
      * Request to stop the pool.
      *
      * Remaining tasks will continue on. Enqueuing is blocked.
      */
-    void stop() noexcept;
+    void stop() noexcept
+    {
+        {
+            std::scoped_lock lk(mutex_);
+            stop_ = true;
+        }
+        cond_work.notify_all();
+        if constexpr (Bounded) {
+            this->cond_enqueue.notify_all();
+        }
+    }
 
     /**
      * Request to stop the pool immediately. Discards tasks in the queue.
      */
-    void stop_now() noexcept;
+    void stop_now() noexcept
+    {
+        {
+            std::scoped_lock lk(mutex_);
+            stop_ = true;
+            tasks.clear();
+            if (nb_working == 0) {
+                cond_all_done.notify_all();
+            }
+        }
+        cond_work.notify_all();
+        if constexpr (Bounded) {
+            this->cond_enqueue.notify_all();
+        }
+    }
 
     /**
      * Wait for all tasks to finish.
      */
-    void wait_all() noexcept;
+    void wait_all() noexcept
+    {
+        std::unique_lock lk(mutex_);
+        cond_all_done.wait(lk, [&] { return nb_working == 0 && tasks.empty(); });
+    }
 
     /**
      * Enqueue a task
@@ -61,25 +126,41 @@ public:
      * @return Returns `false` if pool is stopped
      */
     template<typename F>
-    bool enqueue(F&& f) noexcept;
+    bool enqueue(F&& f) noexcept
+    {
+        TaskT task(std::forward<F>(f));
+        {
+            using LockT = std::conditional_t<Bounded, std::unique_lock<std::mutex>, std::lock_guard<std::mutex>>;
+            LockT lk(mutex_);
+            if constexpr (Bounded) {
+                this->cond_enqueue.wait(lk, [&] { return (tasks.size() < this->max_jobs) || stop_; });
+            }
+            if (stop_) {
+                return false;
+            }
+            tasks.push_back(std::move(task));
+        }
+        cond_work.notify_one();
+        return true;
+    }
+
+    static constexpr auto is_bounded = Bounded;
 
 private:
     std::vector<std::thread> workers;
 
     std::mutex mutex_;
-    std::condition_variable cond;
+    std::condition_variable cond_work;
     bool stop_ = false;
 
     std::size_t nb_working = 0;
-    std::condition_variable working_cond;
-
-    std::condition_variable cond_enqueue;
-    std::size_t max_jobs;
+    std::condition_variable cond_all_done;
 
     // move_only_function is used for type-erased task storage.
     // It has lower overhead, and allows non-copyable tasks.
     using TaskT = std::move_only_function<void() &>;
-    std::deque<TaskT> tasks;
+    using QueueT = std::conditional_t<Bounded, boost::circular_buffer<TaskT>, std::deque<TaskT>>;
+    QueueT tasks;
 
     void worker_loop()
     {
@@ -88,15 +169,15 @@ private:
 
             {
                 std::unique_lock lk(mutex_);
-                cond.wait(lk, [&] { return stop_ || !tasks.empty(); });
+                cond_work.wait(lk, [&] { return stop_ || !tasks.empty(); });
                 if (tasks.empty())
                     return;
                 task = std::move(tasks.front());
                 tasks.pop_front();
                 nb_working += 1;
             }
-            if (max_jobs) {
-                cond_enqueue.notify_one();
+            if constexpr (Bounded) {
+                this->cond_enqueue.notify_one();
             }
 
             task();
@@ -104,87 +185,37 @@ private:
             {
                 std::scoped_lock lk(mutex_);
                 if (--nb_working == 0) {
-                    working_cond.notify_all();
+                    cond_all_done.notify_all();
                 }
             }
         }
     }
+
+    void start_workers(std::size_t nb_threads) noexcept
+    {
+        for (std::size_t i = 0; i < nb_threads; ++i) {
+            workers.emplace_back([this] { worker_loop(); });
+        }
+    }
+
+    template<typename F>
+    void start_workers(const F& init_fn, std::size_t nb_threads) noexcept
+    {
+        for (std::size_t i = 0; i < nb_threads; ++i) {
+            workers.emplace_back([this, init_fn] { // init_fn must be copyable
+                init_fn();
+                worker_loop();
+            });
+        }
+    }
 };
 
-inline ThreadPool::ThreadPool(std::size_t N, std::size_t max_jobs_) noexcept : max_jobs(max_jobs_)
-{
-    for (std::size_t i = 0; i < N; ++i) {
-        workers.emplace_back( [this] {
-            worker_loop();
-        });
-    }
-}
-
-template<typename F>
-inline ThreadPool::ThreadPool(const F& init_fn, std::size_t N, std::size_t max_jobs_) noexcept : max_jobs(max_jobs_)
-{
-    for (std::size_t i = 0; i < N; ++i) {
-        workers.emplace_back( [this, init_fn] { // init_fn must be copyable
-            init_fn();
-            worker_loop();
-        });
-    }
-}
-
-inline void ThreadPool::stop() noexcept
-{
-    {
-        std::scoped_lock lk(mutex_);
-        stop_ = true;
-    }
-    cond.notify_all();
-    if (max_jobs) cond_enqueue.notify_all();
-}
-
-inline void ThreadPool::stop_now() noexcept
-{
-    {
-        std::scoped_lock lk(mutex_);
-        stop_ = true;
-        tasks.clear();
-        if (nb_working == 0) {
-            working_cond.notify_all();
-        }
-    }
-    cond.notify_all();
-    if (max_jobs) cond_enqueue.notify_all();
-}
-
-inline ThreadPool::~ThreadPool() noexcept
-{
-    stop();
-    for (auto& worker : workers) {
-        worker.join();
-    }
-}
-
-inline void ThreadPool::wait_all() noexcept
-{
-    std::unique_lock lk(mutex_);
-    working_cond.wait(lk, [&] { return nb_working == 0 && tasks.empty(); });
-}
-
-template<typename F>
-inline bool ThreadPool::enqueue(F&& f) noexcept
-{
-    TaskT task(std::forward<F>(f));
-    {
-        std::unique_lock lk(mutex_);
-        if (max_jobs) {
-            cond_enqueue.wait(lk, [&] { return (tasks.size() < max_jobs) || stop_; });
-        }
-        if (stop_) {
-            return false;
-        }
-        tasks.emplace_back(std::move(task));
-    }
-    cond.notify_one();
-    return true;
-}
+// CTAD guides
+ThreadPool(std::size_t, std::size_t) -> ThreadPool<true>;
+ThreadPool(std::size_t) -> ThreadPool<false>;
+template<std::invocable F>
+ThreadPool(const F&, std::size_t, std::size_t) -> ThreadPool<true>;
+template<std::invocable F>
+ThreadPool(const F&, std::size_t) -> ThreadPool<false>;
 
 #endif /* THREAD_POOL_HPP_FE77F15C_8C2D_411A_8D40_2AA77362894A */
