@@ -22,7 +22,7 @@ struct ThreadPoolBase {
 template<>
 struct ThreadPoolBase<true> {
     std::size_t max_jobs;
-    std::condition_variable cond_enqueue;
+    std::condition_variable cond_enqueue{};
 };
 
 } // namespace detail
