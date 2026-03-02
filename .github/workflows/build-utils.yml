@@ -88,9 +88,9 @@ jobs:
         cmake --build .
         cpack
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: camera-utils-${{ github.sha }}-${{ runner.os }}_${{ runner.arch }}
         path: |
           ${{ steps.strings.outputs.build_dir }}/*.tar.*
-        compression-level: 0  # Already compressed
+        archive: false
