@@ -7,6 +7,7 @@
 #include <cmath>
 #include <map>
 #include <utility>
+#include <format>
 
 using namespace mp4utils;
 
@@ -95,37 +96,38 @@ void insert_protobuf_metadata(CameraInfo& info,
         if (is_top_level && eq_one(field_name, "offset", "offset_v2", "offset_v3"))
             continue;
 
+        const auto concat_name = auto(prepend) += field_name;
         switch(cpp_type) {
         using T  = google::protobuf::FieldDescriptor::CppType;
         using T_ = google::protobuf::FieldDescriptor::Type;
         case(T::CPPTYPE_INT32):
-            info.extras[GroupId::Metadata][prepend + field_name] = (types::Int)refl->GetInt32(message, field_desc);
+            info.extras[GroupId::Metadata][concat_name] = (types::Int)refl->GetInt32(message, field_desc);
             break;
         case(T::CPPTYPE_INT64):
-            info.extras[GroupId::Metadata][prepend + field_name] = (types::Int)refl->GetInt64(message, field_desc);
+            info.extras[GroupId::Metadata][concat_name] = (types::Int)refl->GetInt64(message, field_desc);
             break;
         case(T::CPPTYPE_UINT32):
-            info.extras[GroupId::Metadata][prepend + field_name] = (types::UInt)refl->GetUInt32(message, field_desc);
+            info.extras[GroupId::Metadata][concat_name] = (types::UInt)refl->GetUInt32(message, field_desc);
             break;
         case(T::CPPTYPE_UINT64):
-            info.extras[GroupId::Metadata][prepend + field_name] = (types::UInt)refl->GetUInt64(message, field_desc);
+            info.extras[GroupId::Metadata][concat_name] = (types::UInt)refl->GetUInt64(message, field_desc);
             break;
         case(T::CPPTYPE_DOUBLE):
-            info.extras[GroupId::Metadata][prepend + field_name] = refl->GetDouble(message, field_desc);
+            info.extras[GroupId::Metadata][concat_name] = refl->GetDouble(message, field_desc);
             break;
         case(T::CPPTYPE_FLOAT):
-            info.extras[GroupId::Metadata][prepend + field_name] = refl->GetFloat(message, field_desc);
+            info.extras[GroupId::Metadata][concat_name] = refl->GetFloat(message, field_desc);
             break;
         case(T::CPPTYPE_BOOL):
-            info.extras[GroupId::Metadata][prepend + field_name] = refl->GetBool(message, field_desc);
+            info.extras[GroupId::Metadata][concat_name] = refl->GetBool(message, field_desc);
             break;
         case(T::CPPTYPE_STRING):
             if (type == T_::TYPE_STRING) {
-                info.extras[GroupId::Metadata][prepend + field_name] = refl->GetString(message, field_desc);
+                info.extras[GroupId::Metadata][concat_name] = refl->GetString(message, field_desc);
             } else if (type == T_::TYPE_BYTES) {
                 const auto str = refl->GetString(message, field_desc);
                 types::RawBytes vec(str.cbegin(), str.cend());
-                info.extras[GroupId::Metadata][prepend + field_name] = std::move(vec);
+                info.extras[GroupId::Metadata][concat_name] = std::move(vec);
             }
             break;
         case(T::CPPTYPE_ENUM):
@@ -133,15 +135,15 @@ void insert_protobuf_metadata(CameraInfo& info,
             const auto enum_desc = field_desc->enum_type();
             const auto enum_num = refl->GetEnumValue(message, field_desc);
             const auto enum_val_desc = enum_desc->FindValueByNumber(enum_num); // nullptr if num is invalid
-            const std::string display_name = (enum_val_desc ? enum_val_desc->name() : "Unknown value") + " (" + std::to_string(enum_num) + ")";
-            info.extras[GroupId::Metadata][prepend + field_name] = display_name;
+            std::string display_name = std::format("{} ({})", (enum_val_desc ? enum_val_desc->name() : "Unknown value"),  enum_num);
+            info.extras[GroupId::Metadata][concat_name] = std::move(display_name);
             break;
         }
         case(T::CPPTYPE_MESSAGE):
         {
             const auto& sub_msg = refl->GetMessage(message, field_desc);
             //const auto sub_msg_desc = field_desc->message_type();
-            const auto new_prepend = prepend + field_name + ".";
+            const auto new_prepend = concat_name + '.';
             insert_protobuf_metadata(info, sub_msg, new_prepend);
             break;
         }
