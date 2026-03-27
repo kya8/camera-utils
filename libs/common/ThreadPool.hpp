@@ -2,7 +2,8 @@
 #define THREAD_POOL_HPP_FE77F15C_8C2D_411A_8D40_2AA77362894A
 
 #include "ThreadPoolFwd.hpp"
-#include <functional>
+// #include <functional>
+#include <boost/compat/move_only_function.hpp>
 #include <vector>
 #include <deque>
 #include <thread>
@@ -158,7 +159,7 @@ private:
 
     // move_only_function is used for type-erased task storage.
     // It has lower overhead, and allows non-copyable tasks.
-    using TaskT = std::move_only_function<void() &>;
+    using TaskT = boost::compat::move_only_function<void() &>;
     using QueueT = std::conditional_t<Bounded, boost::circular_buffer<TaskT>, std::deque<TaskT>>;
     QueueT tasks;
 

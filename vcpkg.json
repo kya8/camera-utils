@@ -15,6 +15,10 @@
             ]
         },
         "protobuf",
-        "boost-circular-buffer"
+        "boost-circular-buffer",
+        {
+            "name": "boost-compat",
+            "version>=": "1.89.0"
+        }
     ]
 }
