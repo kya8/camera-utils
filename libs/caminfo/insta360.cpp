@@ -96,7 +96,7 @@ void insert_protobuf_metadata(CameraInfo& info,
         if (is_top_level && eq_one(field_name, "offset", "offset_v2", "offset_v3"))
             continue;
 
-        const auto concat_name = auto(prepend) += field_name;
+        const auto concat_name = std::string(prepend) += field_name;
         switch(cpp_type) {
         using T  = google::protobuf::FieldDescriptor::CppType;
         using T_ = google::protobuf::FieldDescriptor::Type;
