@@ -5,6 +5,7 @@
 #include <array>
 #include <vector>
 #include <optional>
+#include <cassert>
 #include "helper_templates.hpp"
 #include "range.hpp"
 
@@ -256,8 +257,9 @@ merge_info(MergeInfo& info, Mp4Stream& file, std::size_t file_id, std::size_t cu
 }
 
 template<class D1, class D2>
-void copyWithMergeProg(WriteStreamBase<D1>& dst, ReadStreamBase<D2>& src, std::size_t n, std::size_t bufsize, const MergeProgCb& cb, int prog_start, int prog_end)
-{ // assumes cb is not empty
+void copy_with_merge_prog(WriteStreamBase<D1>& dst, ReadStreamBase<D2>& src, std::size_t n, std::size_t bufsize, const MergeProgCb& cb, int prog_start, int prog_end)
+{
+    assert(cb); // assumes cb is not empty
     #ifdef __cpp_lib_smart_ptr_for_overwrite
     const auto buf = std::make_unique_for_overwrite<unsigned char[]>(bufsize);
     #else
@@ -332,7 +334,7 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
                 if (cb) {
                     const int prog_start = int(double(mdat_size_copied) / mdat_size_sum * 98) + 1;
                     const int prog_end = int(double(mdat_size_copied += data_size) / mdat_size_sum * 98) + 1;
-                    copyWithMergeProg(output, f, data_size, 4*1024*1024, cb, prog_start, prog_end);
+                    copy_with_merge_prog(output, f, data_size, 4*1024*1024, cb, prog_start, prog_end);
                 }
                 else {
                     output.copy_from(f, data_size);
@@ -476,7 +478,7 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
 } // unnamed ns
 
 MergeResult
-mp4utils::merge_mp4(int nb_input, const char* const* input_files, const char* output_file, const MergeProgCb& prog_cb) noexcept try
+mp4utils::merge_mp4(int nb_input, const char* const* input_files, const char* output_file, const MergeProgCb prog_cb) noexcept try
 {
     if (nb_input < 2) return MergeResult::InvalidInput; // Require at-least 2 input files.
 

@@ -48,12 +48,12 @@ int main_mp4_join(int argc, char** argv) noexcept
     std::atomic<int> prog = -1;
     int prog_prev = -1;
 
-    const auto prog_cb = [&] (int prog_) {
-        prog.store(prog_, std::memory_order_release);
+    const auto prog_fn = [] (void* data, int prog_) {
+        static_cast<std::atomic<int>*>(data)->store(prog_, std::memory_order_release);
     };
     std::thread worker {
         [&] {
-            ret = merge_mp4(static_cast<int>(inputs.size()), inputs.data(), output, prog_cb);
+            ret = merge_mp4(static_cast<int>(inputs.size()), inputs.data(), output, {prog_fn, &prog});
             done.store(true, std::memory_order_release);
         }
     };
