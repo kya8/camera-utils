@@ -5,6 +5,8 @@
 
 using std::uint32_t, std::uint64_t, std::int32_t, std::uint8_t;
 
+using namespace fourcc_literal;
+
 namespace mp4utils {
 
 namespace {
@@ -12,12 +14,12 @@ namespace {
 std::optional<TrackInfo>
 parse_trak(Mp4Stream& file, const Mp4Stream::AtomInfo& trak_atom) noexcept try {
 {
-    if (trak_atom.fourcc != fourcc("trak")) return {};
+    if (trak_atom.fourcc != "trak"_fc) return {};
     TrackInfo track_info;
 
     //tkhd
     {
-        file.seek_to_atom_data(fourcc("tkhd"), trak_atom);
+        file.seek_to_atom_data("tkhd"_fc, trak_atom);
         uint8_t ver; uint32_t _flag;
         file.read_num(ver);
         file.read_num<Endian::BE, uint32_t, 3>(_flag);
@@ -42,10 +44,10 @@ parse_trak(Mp4Stream& file, const Mp4Stream::AtomInfo& trak_atom) noexcept try {
         file.read_num(track_info.tkhd_height);
     }
 
-    const auto mdia_atom = file.seek_to_atom_data(fourcc("mdia"), trak_atom);
+    const auto mdia_atom = file.seek_to_atom_data("mdia"_fc, trak_atom);
     //mdhd
     {
-        file.seek_to_atom_data(fourcc("mdhd"), mdia_atom);
+        file.seek_to_atom_data("mdhd"_fc, mdia_atom);
         uint8_t ver; uint32_t _flag;
         file.read_num(ver);
         file.read_num<Endian::BE, uint32_t, 3>(_flag);
@@ -61,20 +63,20 @@ parse_trak(Mp4Stream& file, const Mp4Stream::AtomInfo& trak_atom) noexcept try {
     }
     //hdlr
     {
-        file.seek_to_atom_data(fourcc("hdlr"), mdia_atom);
+        file.seek_to_atom_data("hdlr"_fc, mdia_atom);
         uint8_t ver; uint32_t _flag;
         file.read_num(ver);
         file.read_num<Endian::BE, uint32_t, 3>(_flag);
         file.seek(4, SeekFrom::Current);
         file.read_num(track_info.hdlr_type);
     }
-    const auto minf_atom = file.seek_to_atom_data(fourcc("minf"), mdia_atom);
+    const auto minf_atom = file.seek_to_atom_data("minf"_fc, mdia_atom);
     // vmhd/smhd, dinf...
-    const auto stbl_atom = file.seek_to_atom_data(fourcc("stbl"), minf_atom);
+    const auto stbl_atom = file.seek_to_atom_data("stbl"_fc, minf_atom);
 
     //stsd
     {
-        file.seek_to_atom_data(fourcc("stsd"), stbl_atom);
+        file.seek_to_atom_data("stsd"_fc, stbl_atom);
         file.seek(4, SeekFrom::Current);
         file.read_num(track_info.sample_desc_count);
         file.seek(4, SeekFrom::Current);
@@ -90,7 +92,7 @@ parse_trak(Mp4Stream& file, const Mp4Stream::AtomInfo& trak_atom) noexcept try {
         file.read_num(ver);
         file.read_num<Endian::BE, uint32_t, 3>(_flag);
 
-        if (atom.fourcc == fourcc("stsz")) { // `stz2' is not supported
+        if (atom.fourcc == "stsz"_fc) { // `stz2' is not supported
             file.read_num(track_info.stsz_sample_size);
             file.read_num(track_info.stsz_count);
             if (track_info.stsz_sample_size == 0) {
@@ -102,27 +104,27 @@ parse_trak(Mp4Stream& file, const Mp4Stream::AtomInfo& trak_atom) noexcept try {
             }
         }
 
-        else if (eq_one(atom.fourcc, fourcc("stco"), fourcc("co64"), fourcc("stts"), fourcc("stsc"))) {
+        else if (eq_one(atom.fourcc, "stco"_fc, "co64"_fc, "stts"_fc, "stsc"_fc)) {
             uint32_t count;
             file.read_num(count);
             while(count-- > 0) {
-                if (atom.fourcc == fourcc("stts")) {
+                if (atom.fourcc == "stts"_fc) {
                     uint32_t consecutive_samples, sample_duration;
                     file.read_num(consecutive_samples);
                     file.read_num(sample_duration);
                     track_info.stts.emplace_back(consecutive_samples, sample_duration);
                 }
-                else if (atom.fourcc == fourcc("stco")) {
+                else if (atom.fourcc == "stco"_fc) {
                     uint32_t chunk_offset;
                     file.read_num(chunk_offset);
                     track_info.stco.push_back(chunk_offset);
                 }
-                else if (atom.fourcc == fourcc("co64")) {
+                else if (atom.fourcc == "co64"_fc) {
                     uint64_t chunk_offset;
                     file.read_num(chunk_offset);
                     track_info.stco.push_back(chunk_offset);
                 }
-                else if (atom.fourcc == fourcc("stsc")) {
+                else if (atom.fourcc == "stsc"_fc) {
                     uint32_t first_chunk, samples_per_chunk, sample_desc_id;
                     file.read_num(first_chunk);
                     file.read_num(samples_per_chunk);
@@ -150,11 +152,11 @@ get_tracks(Mp4Stream& file) noexcept try {
     file.seek(0);
     std::vector<TrackInfo> result_tracks;
 
-    const auto moov = file.seek_to_atom_data(fourcc("moov"), file.get_length());
+    const auto moov = file.seek_to_atom_data("moov"_fc, file.get_length());
     const auto atoms_in_moov = file.get_all_atoms(moov.data_size());
 
     for (const auto& atom : atoms_in_moov) {
-        if (atom.fourcc == fourcc("trak")) {
+        if (atom.fourcc == "trak"_fc) {
             const auto info = parse_trak(file, atom);
             if (info) result_tracks.push_back(std::move(*info));
         }

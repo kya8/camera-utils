@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <range.hpp>
 
+using namespace fourcc_literal;
+
 namespace caminfo {
 
 bool
@@ -17,9 +19,9 @@ detect_gopro(mp4utils::Mp4Stream& file, CameraInfo& info, bool metadata_only) no
     try {
         file.seek(0);
         // Get the moov/udta/GPMF box, which stores global metadata.
-        auto atom = file.seek_to_atom_data(fourcc("moov"), file.get_length());
-        atom = file.seek_to_atom_data(fourcc("udta"), atom);
-        atom = file.seek_to_atom_data(fourcc("GPMF"), atom);
+        auto atom = file.seek_to_atom_data("moov"_fc, file.get_length());
+        atom = file.seek_to_atom_data("udta"_fc, atom);
+        atom = file.seek_to_atom_data("GPMF"_fc, atom);
 
         data = file.read_atom_data(atom);
     } catch (const mp4utils::StreamError&) {
@@ -79,7 +81,7 @@ detect_gopro(mp4utils::Mp4Stream& file, CameraInfo& info, bool metadata_only) no
 
     // read and parse gpmd samples one by one
     const auto tracks = mp4utils::get_tracks(file);
-    const auto gpmd_track = std::find_if(tracks.cbegin(), tracks.cend(), [](const auto& track) { return track.stsd_first_format == fourcc("gpmd"); });
+    const auto gpmd_track = std::find_if(tracks.cbegin(), tracks.cend(), [](const auto& track) { return track.stsd_first_format == "gpmd"_fc; });
     if (gpmd_track == tracks.cend()) return true;
     mp4utils::SampleReader sample_reader(file, *gpmd_track);
     mp4utils::SampleReader::SampleInfo sample;

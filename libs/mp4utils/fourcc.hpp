@@ -25,5 +25,35 @@ fourcc_str(std::uint32_t u) noexcept {
     };
 }
 
+namespace fourcc_literal {
+
+namespace detail {
+
+// Owning wrapper for converting a string literal
+template<std::size_t N>
+struct StringLiteral {
+    static_assert(N > 0);
+    static constexpr auto size = N - 1;
+    char str[N];
+    constexpr StringLiteral(const char(&s)[N]) noexcept {
+        for (std::size_t i = 0; i < N; ++i) {
+            str[i] = s[i];
+        }
+    }
+};
+
+} // namespace detail
+
+template<detail::StringLiteral Str>
+constexpr std::uint32_t operator""_fc() noexcept {
+    static_assert(Str.size == 4, "FourCC must contain exactly 4 characters");
+    return static_cast<std::uint32_t>(Str.str[0]) << 24 |
+           static_cast<std::uint32_t>(Str.str[1]) << 16 |
+           static_cast<std::uint32_t>(Str.str[2]) << 8 |
+           static_cast<std::uint32_t>(Str.str[3]);
+}
+
+} // namespace fourcc_literal
+
 
 #endif /* FOURCC_HPP_B41F7CAE_9564_47EB_B9E3_0A8F343DE21D */

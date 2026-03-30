@@ -6,6 +6,8 @@
 
 //NOT-Implemented: handle edit lists; Multiple stsd sample desc entries; frames per sample.
 
+using namespace fourcc_literal;
+
 namespace mp4utils {
 
 namespace {
@@ -33,7 +35,7 @@ bool
 extract_video_info(Mp4Stream& file, VideoInfo& out, std::vector<int>* video_track_ids) noexcept try
 {
     file.seek(0);
-    const auto mvhd = seek_atom_recursive(file, {fourcc("moov"), fourcc("mvhd")}, file.get_length());
+    const auto mvhd = seek_atom_recursive(file, {"moov"_fc, "mvhd"_fc}, file.get_length());
     if (!mvhd) return false;
     const auto mvhd_timescale = [&] {
         std::uint8_t ver; std::uint32_t _flag;
@@ -48,7 +50,7 @@ extract_video_info(Mp4Stream& file, VideoInfo& out, std::vector<int>* video_trac
     const auto tracks = get_tracks(file);
     std::vector<int> video_track_indices;
     for (const auto i : range::make_index(tracks.size())) {
-        if (tracks[i].hdlr_type == fourcc("vide"))
+        if (tracks[i].hdlr_type == "vide"_fc)
             video_track_indices.push_back(static_cast<int>(i));
     }
     if (video_track_indices.empty()) return false;

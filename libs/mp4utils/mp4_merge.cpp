@@ -9,6 +9,7 @@
 #include "range.hpp"
 
 using std::uint8_t, std::uint32_t, std::uint64_t, std::int64_t;
+using namespace fourcc_literal;
 
 using namespace mp4utils;
 
@@ -18,7 +19,7 @@ namespace {
 constexpr bool
 should_descend(uint32_t type)
 {
-    return eq_one(type, fourcc("moov"), fourcc("trak"), fourcc("edts"), fourcc("mdia"), fourcc("minf"), fourcc("stbl"));
+    return eq_one(type, "moov"_fc, "trak"_fc, "edts"_fc, "mdia"_fc, "minf"_fc, "stbl"_fc);
 }
 
 // Similar to Mp4Stream::verify(), with additional checks.
@@ -29,14 +30,14 @@ check_input(Mp4Stream& file) noexcept try {
     bool err = false;
     const auto root_atoms = file.get_all_atoms(file.get_length());
     for (const auto& a : root_atoms) {
-        if (a.fourcc == fourcc("moov")) {
+        if (a.fourcc == "moov"_fc) {
             if (has_moov) {
                 err = true;
                 break;
             }
             has_moov = true;
         }
-        if (a.fourcc == fourcc("mdat")) {
+        if (a.fourcc == "mdat"_fc) {
             if (has_mdat) {
                 err = true; // We don't handle mutiple mdat, although it is allowed by ISOBMFF.
                 break;
@@ -88,7 +89,7 @@ merge_info(MergeInfo& info, Mp4Stream& file, std::size_t file_id, std::size_t cu
     for (;;) {
         const auto atom = file.parse_atom();
         if (should_descend(atom.fourcc)) {
-            if (atom.fourcc == fourcc("trak") && current_track_id>=info.trak_infos.size()) {
+            if (atom.fourcc == "trak"_fc && current_track_id>=info.trak_infos.size()) {
                 if (file_id == 0) { // should make room
                     info.trak_infos.resize(current_track_id+1);
                 }
@@ -97,17 +98,17 @@ merge_info(MergeInfo& info, Mp4Stream& file, std::size_t file_id, std::size_t cu
                 }
             }
             if (!merge_info(info, file, file_id, current_track_id, atom.data_size())) return false;
-            if (atom.fourcc == fourcc("trak")) current_track_id += 1;
+            if (atom.fourcc == "trak"_fc) current_track_id += 1;
 
         }
         else { // "leaf" atoms that contain actual data
-            if (eq_one(atom.fourcc, fourcc("mvhd"), fourcc("tkhd"), fourcc("mdhd"))) {
+            if (eq_one(atom.fourcc, "mvhd"_fc, "tkhd"_fc, "mdhd"_fc)) {
                 uint8_t ver; uint32_t _flag;
                 file.read_num(ver);
                 file.read_num<Endian::BE, uint32_t, 3>(_flag);
                 if (ver>1) return false;  // Version is either 0 or 1.
 
-                if (atom.fourcc == fourcc("mvhd")) {
+                if (atom.fourcc == "mvhd"_fc) {
                     info.mvhd_duration += [&]() -> uint64_t {
                         if (ver==1) {
                             uint64_t duration;
@@ -123,7 +124,7 @@ merge_info(MergeInfo& info, Mp4Stream& file, std::size_t file_id, std::size_t cu
                 else {
                     if (current_track_id>=info.trak_infos.size()) return false; // should not happen inside trak
                     auto& track_info = info.trak_infos[current_track_id];
-                    if (atom.fourcc == fourcc("tkhd")) {
+                    if (atom.fourcc == "tkhd"_fc) {
                         track_info.tkhd_duration += [&]() -> uint64_t {
                             if (ver==1) {
                                 uint64_t duration;
@@ -136,7 +137,7 @@ merge_info(MergeInfo& info, Mp4Stream& file, std::size_t file_id, std::size_t cu
                             }
                         }();
                     }
-                    if (atom.fourcc == fourcc("mdhd")) {
+                    if (atom.fourcc == "mdhd"_fc) {
                         track_info.mdhd_duration += [&]() -> uint64_t {
                             if (ver==1) {
                                 uint64_t duration;
@@ -152,7 +153,7 @@ merge_info(MergeInfo& info, Mp4Stream& file, std::size_t file_id, std::size_t cu
                 }
             } //
 
-            if (eq_one(atom.fourcc, fourcc("elst"), fourcc("stts"), fourcc("stsz"), fourcc("stss"), fourcc("stco"), fourcc("co64"), fourcc("sdtp"), fourcc("stsc")))
+            if (eq_one(atom.fourcc, "elst"_fc, "stts"_fc, "stsz"_fc, "stss"_fc, "stco"_fc, "co64"_fc, "sdtp"_fc, "stsc"_fc))
             {
                 if (current_track_id>=info.trak_infos.size()) return false; // should not happen inside trak
                 auto& track_info = info.trak_infos[current_track_id];
@@ -163,7 +164,7 @@ merge_info(MergeInfo& info, Mp4Stream& file, std::size_t file_id, std::size_t cu
                     file.read_num<Endian::BE, uint32_t, 3>(_flag);
                     if (ver>1) return false;  // Version is either 0 or 1.
 
-                    if (atom.fourcc == fourcc("elst")) {
+                    if (atom.fourcc == "elst"_fc) {
                         file.seek(4, SeekFrom::Current);
                         track_info.elst_segment_duration += [&]() -> uint64_t {
                             if (ver==1) {
@@ -175,7 +176,7 @@ merge_info(MergeInfo& info, Mp4Stream& file, std::size_t file_id, std::size_t cu
                             }
                         }();
                     }
-                    if (atom.fourcc == fourcc("stsz")) { // `stz2' is not supported
+                    if (atom.fourcc == "stsz"_fc) { // `stz2' is not supported
                         // The sample size field from all files are assumed to be identical,
                         // i.e. either all 0 or some positive value.
                         file.read_num(track_info.stsz_sample_size);
@@ -188,37 +189,37 @@ merge_info(MergeInfo& info, Mp4Stream& file, std::size_t file_id, std::size_t cu
                         }
                         track_info.stsz_count += count;
                     }
-                    if (atom.fourcc == fourcc("sdtp")) {
+                    if (atom.fourcc == "sdtp"_fc) {
                         for (auto i = 0u; i < atom.data_size() - 4; ++i) {
                             uint8_t data; file.read_num(data);
                             track_info.sdtp.push_back(data);
                         }
                     }
-                    if (eq_one(atom.fourcc, fourcc("stss"), fourcc("stco"), fourcc("co64"), fourcc("stts"), fourcc("stsc"))) {
+                    if (eq_one(atom.fourcc, "stss"_fc, "stco"_fc, "co64"_fc, "stts"_fc, "stsc"_fc)) {
                         uint32_t count; file.read_num(count);
                         const auto current_file_mdat_offset = info.mdat_position.at(file_id)[0];
                         // The cast is only for clarity.
                         // ISO C++ guarantees correct final result, even no cast applied here.
                         const auto mdat_adjust = -int64_t(current_file_mdat_offset) + int64_t(info.mdat_offset);
                         while(count-- > 0) {
-                            if (atom.fourcc == fourcc("stss")) {
+                            if (atom.fourcc == "stss"_fc) {
                                 uint32_t sample_id; file.read_num(sample_id);
                                 track_info.stss.push_back(sample_id + track_info.sample_offset);
                             }
-                            if (atom.fourcc == fourcc("stco")) {
+                            if (atom.fourcc == "stco"_fc) {
                                 uint32_t chunk_offset; file.read_num(chunk_offset);
                                 track_info.stco.push_back(chunk_offset + mdat_adjust); // u32 to u64/i64 is always lossless
                             }
-                            if (atom.fourcc == fourcc("co64")) {
+                            if (atom.fourcc == "co64"_fc) {
                                 uint64_t chunk_offset; file.read_num(chunk_offset);
                                 track_info.stco.push_back(int64_t(chunk_offset) + mdat_adjust); // Again, for clarity only.
                             }
-                            if (atom.fourcc == fourcc("stts")) {
+                            if (atom.fourcc == "stts"_fc) {
                                 uint32_t consecutive_samples; file.read_num(consecutive_samples);
                                 uint32_t sample_duration; file.read_num(sample_duration);
                                 track_info.stts.push_back({consecutive_samples, sample_duration});
                             }
-                            if (atom.fourcc == fourcc("stsc")) {
+                            if (atom.fourcc == "stsc"_fc) {
                                 uint32_t first_chunk, samples_per_chunk, sample_desc_id;
                                 file.read_num(first_chunk); file.read_num(samples_per_chunk); file.read_num(sample_desc_id);
                                 track_info.stsc.push_back({
@@ -238,10 +239,10 @@ merge_info(MergeInfo& info, Mp4Stream& file, std::size_t file_id, std::size_t cu
              * 3. GoPro seems to have a minf->gmhd->tmcd box in the tmcd track
              * Additionally, other tracks might reference the tmcd track, in `tref' box.
              */
-            if (atom.fourcc == fourcc("stsd")) {
+            if (atom.fourcc == "stsd"_fc) {
                 file.seek(4+4+4, SeekFrom::Current);
                 uint32_t format = 0; file.read_num(format);
-                if (format == fourcc("tmcd") && current_track_id < info.trak_infos.size()) { // we're inside a tmcd trak
+                if (format == "tmcd"_fc && current_track_id < info.trak_infos.size()) { // we're inside a tmcd trak
                     info.trak_infos.at(current_track_id).skip = true;
                 }
             }
@@ -302,7 +303,7 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
             if (!ret) return {};
             new_size = ret.value() + atom.header_size;
 
-            if (atom.fourcc == fourcc("trak")) {
+            if (atom.fourcc == "trak"_fc) {
                 track_id += 1;
             }
 
@@ -310,10 +311,10 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
                 output.patch_num(out_header_offset, uint32_t(new_size));
             }
         }
-        else if (atom.fourcc == fourcc("mdat")) {
+        else if (atom.fourcc == "mdat"_fc) {
             // Write as extended mdat box.
             output.write_num(uint32_t(1));
-            output.write_num(fourcc("mdat"));
+            output.write_num("mdat"_fc);
             const auto mdat_extended_size_pos = output.tell();
             output.write_num(uint64_t(0)); // re-write later
             new_size = 16;
@@ -345,7 +346,7 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
 
             ref.seek(atom.end_offset());
         }
-        else if (eq_one(atom.fourcc, fourcc("mvhd"), fourcc("tkhd"), fourcc("mdhd"), fourcc("elst"))) {
+        else if (eq_one(atom.fourcc, "mvhd"_fc, "tkhd"_fc, "mdhd"_fc, "elst"_fc)) {
             uint8_t ver; uint32_t _flags;
             ref.read_num(ver);
             ref.read_num<Endian::BE, uint32_t, 3>(_flags);
@@ -355,28 +356,28 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
             const auto pos = output.tell() + atom.header_size + 4; // after version & flags
             output.copy_from(ref, atom.size);
 
-            if (atom.fourcc == fourcc("mvhd")) {
+            if (atom.fourcc == "mvhd"_fc) {
                 if (ver==1) output.patch_num(pos+8+8+4, info.mvhd_duration);
                 else       output.patch_num(pos+4+4+4, uint32_t(info.mvhd_duration));
             }
             else {
                 if (track_id >= info.trak_infos.size()) return {};
                 const auto& track_info = info.trak_infos[track_id];
-                if (atom.fourcc == fourcc("tkhd")) {
+                if (atom.fourcc == "tkhd"_fc) {
                     if (ver==1) output.patch_num(pos+8+8+8+4, track_info.tkhd_duration);
                     else       output.patch_num(pos+4+4+4+4, uint32_t(track_info.tkhd_duration));
                 }
-                if (atom.fourcc == fourcc("mdhd")) {
+                if (atom.fourcc == "mdhd"_fc) {
                     if (ver==1) output.patch_num(pos+8+8+4, track_info.mdhd_duration);
                     else       output.patch_num(pos+4+4+4, uint32_t(track_info.mdhd_duration));
                 }
-                if (atom.fourcc == fourcc("elst")) {
+                if (atom.fourcc == "elst"_fc) {
                     if (ver==1) output.patch_num(pos+4, track_info.elst_segment_duration);
                     else       output.patch_num(pos+4, uint32_t(track_info.elst_segment_duration));
                 }
             }
         }
-        else if (eq_one(atom.fourcc, fourcc("stts"), fourcc("stsz"), fourcc("stss"), fourcc("stco"), fourcc("co64"), fourcc("sdtp"), fourcc("stsc")))
+        else if (eq_one(atom.fourcc, "stts"_fc, "stsz"_fc, "stss"_fc, "stco"_fc, "co64"_fc, "sdtp"_fc, "stsc"_fc))
         {
             // We'll write these boxes using only the merged info,
             // so skip to the end.
@@ -384,14 +385,14 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
 
             const auto out_pos = output.tell();
             output.write_num(uint32_t(0)); // patch later
-            output.write_num( atom.fourcc == fourcc("stco") ? fourcc("co64") : atom.fourcc );
+            output.write_num( atom.fourcc == "stco"_fc ? "co64"_fc : atom.fourcc );
             output.write_num(uint32_t(0)); // version/flags
             new_size = 12;
 
             if (track_id >= info.trak_infos.size()) return {};
             auto& track_info = info.trak_infos[track_id];
 
-            if (atom.fourcc == fourcc("stts")) {
+            if (atom.fourcc == "stts"_fc) {
                 // Merge entries with the same duration. Is this necessary to be conformant?
                 decltype(track_info.stts) new_stts;
                 uint32_t current_duration{};
@@ -413,7 +414,7 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
                     new_size += 8;
                 }
             }
-            if (atom.fourcc == fourcc("stsz")) {
+            if (atom.fourcc == "stsz"_fc) {
                 output.write_num(track_info.stsz_sample_size);
                 output.write_num(track_info.stsz_count);
                 new_size += 8;
@@ -422,7 +423,7 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
                     new_size += 4;
                 }
             }
-            if (atom.fourcc == fourcc("stss")) {
+            if (atom.fourcc == "stss"_fc) {
                 output.write_num(uint32_t(track_info.stss.size()));
                 new_size += 4;
                 for (const auto& x : track_info.stss) {
@@ -430,7 +431,7 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
                     new_size += 4;
                 }
             }
-            if (atom.fourcc == fourcc("stco") || atom.fourcc == fourcc("co64")) {
+            if (atom.fourcc == "stco"_fc || atom.fourcc == "co64"_fc) {
                 output.write_num(uint32_t(track_info.stco.size()));
                 new_size += 4;
 
@@ -441,13 +442,13 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
                     new_size += 8;
                 }
             }
-            if (atom.fourcc == fourcc("sdtp")) {
+            if (atom.fourcc == "sdtp"_fc) {
                 for (const auto& x : track_info.sdtp) {
                     output.write_num(x);
                     new_size += sizeof(x);
                 }
             }
-            if (atom.fourcc == fourcc("stsc")) {
+            if (atom.fourcc == "stsc"_fc) {
                 output.write_num(uint32_t(track_info.stsc.size()));
                 new_size += 4;
                 for (const auto& [x1, x2, x3] : track_info.stsc) {
@@ -499,7 +500,7 @@ mp4utils::merge_mp4(int nb_input, const char* const* input_files, const char* ou
         auto& file = input_streams[i];
         // Get mdat info
         // should not throw, since we've checked for mdat.
-        const auto mdat = file.seek_to_atom_data(fourcc("mdat"), file.get_length());
+        const auto mdat = file.seek_to_atom_data("mdat"_fc, file.get_length());
         info->mdat_position.push_back({mdat.data_offset(), mdat.data_size()});
 
         // Update info list.
