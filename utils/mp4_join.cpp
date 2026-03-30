@@ -1,8 +1,9 @@
 #include "camera_utils.hpp"
 #include "mp4_merge.hpp"
 #include "version.hpp"
+#include <print>
 #include <cstdio>
-#include <cstring>
+#include "string_utils.hpp"
 #include <vector>
 #include <thread>
 #include <atomic>
@@ -17,11 +18,11 @@ int main_mp4_join(int argc, char** argv) noexcept
         bool print_version = false;
         bool err_flag = 0;
         for (int i = 1; i < argc; ++i) {
-            if (!std::strcmp(argv[i], "-o")) {
+            if (match(argv[i], "-o", "--output")) {
                 if (++i < argc) output = argv[i];
                 else err_flag = 1;
             }
-            else if (!std::strcmp(argv[i], "-V")) {
+            else if (match(argv[i], "-V", "--version")) {
                 print_version = true;
                 break;
             }
@@ -37,7 +38,7 @@ int main_mp4_join(int argc, char** argv) noexcept
             return 0;
         }
         if (err_flag || !output || inputs.size() < 2) {
-            std::puts("Usage: mp4_join <file_1> <file_2> [...] <-o output_file> [-V]");
+            std::println("Usage: mp4_join <file_1> <file_2> [...] <-o output_file> [-V]");
             return 2;
         }
     }
@@ -64,7 +65,7 @@ int main_mp4_join(int argc, char** argv) noexcept
     for (int cnt = 0; !done.load(std::memory_order_acquire); cnt += (cnt < busy_spin_cnt), std::this_thread::sleep_for(std::chrono::milliseconds(cnt < busy_spin_cnt ? busy_spin_interval : relaxed_spin_interval))) {
         const auto prog_new = prog.load(std::memory_order_acquire);
         if (prog_new > prog_prev) {
-            std::printf("\rProgress: %d%%", prog_new);
+            std::print("\rProgress: {}%", prog_new);
             std::fflush(stdout);
             prog_prev = prog_new;
         }
@@ -73,20 +74,22 @@ int main_mp4_join(int argc, char** argv) noexcept
     worker.join();
 
     std::putchar('\r');
+
+    using enum MergeResult;
     switch (ret) {
-    case(MergeResult::Success):
-        std::printf("Merge done: %s\n", output);
+    case(Success):
+        std::println("Merge done: {}", output);
         break;
-    case(MergeResult::InvalidInput):
-        std::puts("Merge error: Invalid input file.");
+    case(InvalidInput):
+        std::println("Merge error: Invalid input file.");
         break;
-    case(MergeResult::IoError):
-        std::puts("Merge error: Could not open file.");
+    case(IoError):
+        std::println("Merge error: Could not open file.");
         break;
-    case(MergeResult::InternalError):
-        std::puts("Merge error: Internal merge error.");
+    case(InternalError):
+        std::println("Merge error: Internal merge error.");
         break;
     }
 
-    return ret == MergeResult::Success ? 0 : 1;
+    return ret == Success ? 0 : 1;
 }
