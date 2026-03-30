@@ -5,8 +5,6 @@
 
 using std::uint32_t, std::uint64_t, std::int32_t, std::uint8_t;
 
-using namespace fourcc_literal;
-
 namespace mp4utils {
 
 namespace {

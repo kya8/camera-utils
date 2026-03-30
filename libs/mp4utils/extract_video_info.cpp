@@ -6,8 +6,6 @@
 
 //NOT-Implemented: handle edit lists; Multiple stsd sample desc entries; frames per sample.
 
-using namespace fourcc_literal;
-
 namespace mp4utils {
 
 namespace {

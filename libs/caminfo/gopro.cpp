@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <range.hpp>
 
-using namespace fourcc_literal;
+using namespace mp4utils::fourcc_literal;
 
 namespace caminfo {
 

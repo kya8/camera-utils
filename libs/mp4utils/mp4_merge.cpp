@@ -9,7 +9,6 @@
 #include "range.hpp"
 
 using std::uint8_t, std::uint32_t, std::uint64_t, std::int64_t;
-using namespace fourcc_literal;
 
 using namespace mp4utils;
 

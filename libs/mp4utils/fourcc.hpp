@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <cstddef>
 
+namespace mp4utils {
+
 template <std::size_t N>
 constexpr std::uint32_t
 fourcc(const char(&s)[N]) noexcept
@@ -25,7 +27,7 @@ fourcc_str(std::uint32_t u) noexcept {
     };
 }
 
-namespace fourcc_literal {
+inline namespace fourcc_literal {
 
 namespace detail {
 
@@ -54,6 +56,8 @@ constexpr std::uint32_t operator""_fc() noexcept {
 }
 
 } // namespace fourcc_literal
+
+} // namespace mp4utils
 
 
 #endif /* FOURCC_HPP_B41F7CAE_9564_47EB_B9E3_0A8F343DE21D */
