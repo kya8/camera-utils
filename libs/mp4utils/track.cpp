@@ -38,8 +38,7 @@ parse_trak(Mp4Stream& file, const Mp4Stream::AtomInfo& trak_atom) noexcept try {
         for(auto i=0u; i<9; ++i) {
             file.read_num(track_info.tkhd_matrix[i]);
         }
-        file.read_num(track_info.tkhd_width);
-        file.read_num(track_info.tkhd_height);
+        file.read_nums(track_info.tkhd_width, track_info.tkhd_height);
     }
 
     const auto mdia_atom = file.seek_to_atom_data("mdia"_fc, trak_atom);
@@ -91,8 +90,7 @@ parse_trak(Mp4Stream& file, const Mp4Stream::AtomInfo& trak_atom) noexcept try {
         file.read_num<Endian::BE, uint32_t, 3>(_flag);
 
         if (atom.fourcc == "stsz"_fc) { // `stz2' is not supported
-            file.read_num(track_info.stsz_sample_size);
-            file.read_num(track_info.stsz_count);
+            file.read_nums(track_info.stsz_sample_size, track_info.stsz_count);
             if (track_info.stsz_sample_size == 0) {
                 for (auto i = 0u; i < track_info.stsz_count; ++i) {
                     uint32_t size;
@@ -108,8 +106,7 @@ parse_trak(Mp4Stream& file, const Mp4Stream::AtomInfo& trak_atom) noexcept try {
             while(count-- > 0) {
                 if (atom.fourcc == "stts"_fc) {
                     uint32_t consecutive_samples, sample_duration;
-                    file.read_num(consecutive_samples);
-                    file.read_num(sample_duration);
+                    file.read_nums(consecutive_samples, sample_duration);
                     track_info.stts.emplace_back(consecutive_samples, sample_duration);
                 }
                 else if (atom.fourcc == "stco"_fc) {
@@ -124,9 +121,7 @@ parse_trak(Mp4Stream& file, const Mp4Stream::AtomInfo& trak_atom) noexcept try {
                 }
                 else if (atom.fourcc == "stsc"_fc) {
                     uint32_t first_chunk, samples_per_chunk, sample_desc_id;
-                    file.read_num(first_chunk);
-                    file.read_num(samples_per_chunk);
-                    file.read_num(sample_desc_id);
+                    file.read_nums(first_chunk, samples_per_chunk, sample_desc_id);
                     track_info.stsc.emplace_back(first_chunk, samples_per_chunk, sample_desc_id);
                 }
             }

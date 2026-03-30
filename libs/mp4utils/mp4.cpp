@@ -40,8 +40,7 @@ Mp4Stream::AtomInfo Mp4Stream::parse_atom()
 
     uint32_t size32;
     info.header_size = 8;
-    read_num(size32);
-    read_num(info.fourcc);
+    read_nums(size32, info.fourcc);
 
     if (info.fourcc == fourcc("uuid")) throw unsupported_file("Extended type is not supported.");
 
