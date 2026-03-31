@@ -77,7 +77,7 @@ namespace caminfo {
 
 namespace {
 
-void insert_protobuf_metadata(CameraInfo& info,
+void insert_protobuf_metadata(VarMap& map,
                               const google::protobuf::Message& message,
                               const std::string& prepend)
 {
@@ -101,33 +101,33 @@ void insert_protobuf_metadata(CameraInfo& info,
         using T  = google::protobuf::FieldDescriptor::CppType;
         using T_ = google::protobuf::FieldDescriptor::Type;
         case(T::CPPTYPE_INT32):
-            info.extras[GroupId::Metadata][concat_name] = (types::Int)refl->GetInt32(message, field_desc);
+            map[concat_name] = (types::Int)refl->GetInt32(message, field_desc);
             break;
         case(T::CPPTYPE_INT64):
-            info.extras[GroupId::Metadata][concat_name] = (types::Int)refl->GetInt64(message, field_desc);
+            map[concat_name] = (types::Int)refl->GetInt64(message, field_desc);
             break;
         case(T::CPPTYPE_UINT32):
-            info.extras[GroupId::Metadata][concat_name] = (types::UInt)refl->GetUInt32(message, field_desc);
+            map[concat_name] = (types::UInt)refl->GetUInt32(message, field_desc);
             break;
         case(T::CPPTYPE_UINT64):
-            info.extras[GroupId::Metadata][concat_name] = (types::UInt)refl->GetUInt64(message, field_desc);
+            map[concat_name] = (types::UInt)refl->GetUInt64(message, field_desc);
             break;
         case(T::CPPTYPE_DOUBLE):
-            info.extras[GroupId::Metadata][concat_name] = refl->GetDouble(message, field_desc);
+            map[concat_name] = refl->GetDouble(message, field_desc);
             break;
         case(T::CPPTYPE_FLOAT):
-            info.extras[GroupId::Metadata][concat_name] = refl->GetFloat(message, field_desc);
+            map[concat_name] = refl->GetFloat(message, field_desc);
             break;
         case(T::CPPTYPE_BOOL):
-            info.extras[GroupId::Metadata][concat_name] = refl->GetBool(message, field_desc);
+            map[concat_name] = refl->GetBool(message, field_desc);
             break;
         case(T::CPPTYPE_STRING):
             if (type == T_::TYPE_STRING) {
-                info.extras[GroupId::Metadata][concat_name] = refl->GetString(message, field_desc);
+                map[concat_name] = refl->GetString(message, field_desc);
             } else if (type == T_::TYPE_BYTES) {
                 const auto str = refl->GetString(message, field_desc);
                 types::RawBytes vec(str.cbegin(), str.cend());
-                info.extras[GroupId::Metadata][concat_name] = std::move(vec);
+                map[concat_name] = std::move(vec);
             }
             break;
         case(T::CPPTYPE_ENUM):
@@ -136,7 +136,7 @@ void insert_protobuf_metadata(CameraInfo& info,
             const auto enum_num = refl->GetEnumValue(message, field_desc);
             const auto enum_val_desc = enum_desc->FindValueByNumber(enum_num); // nullptr if num is invalid
             std::string display_name = std::format("{} ({})", (enum_val_desc ? enum_val_desc->name() : "Unknown value"),  enum_num);
-            info.extras[GroupId::Metadata][concat_name] = std::move(display_name);
+            map[concat_name] = std::move(display_name);
             break;
         }
         case(T::CPPTYPE_MESSAGE):
@@ -144,7 +144,7 @@ void insert_protobuf_metadata(CameraInfo& info,
             const auto& sub_msg = refl->GetMessage(message, field_desc);
             //const auto sub_msg_desc = field_desc->message_type();
             const auto new_prepend = concat_name + '.';
-            insert_protobuf_metadata(info, sub_msg, new_prepend);
+            insert_protobuf_metadata(map, sub_msg, new_prepend);
             break;
         }
         default:
@@ -227,7 +227,7 @@ detect_insta360(mp4utils::Mp4Stream& file, CameraInfo& info, bool metadata_only)
             Insta360Metadata metadata;
             if (metadata.ParseFromArray(buf.data(), (int)buf.size())) {
 
-                insert_protobuf_metadata(info, metadata, "");
+                insert_protobuf_metadata(info.extras[GroupId::Metadata], metadata, "");
 
                 // ...
                 if (metadata.has_offset()) {
