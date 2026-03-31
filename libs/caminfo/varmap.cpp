@@ -5,7 +5,7 @@
 namespace caminfo {
 
 std::string_view
-get_string(GroupId id) noexcept
+to_string(GroupId id) noexcept
 {
     switch(id) {
     case GroupId::NormalizedMetadata : return "NormalizedMetadata";
@@ -18,7 +18,7 @@ get_string(GroupId id) noexcept
     }
 }
 std::string_view
-get_string(KeyId id) noexcept
+to_string(KeyId id) noexcept
 {
     switch(id) {
     case KeyId::CameraModel               : return "CameraModel";
@@ -131,7 +131,7 @@ public:
     }
 
     ST& push(ST& os, const VarMap& map) const {
-        os << "Map: {";
+        os << '{';
         bool first = true;
         for (const auto& [key, val] : map) {
             if (!first) {
@@ -234,7 +234,7 @@ to_string(const Key& key) noexcept
     return std::visit(
         []<typename T>(const T& v) -> std::string_view {
             if constexpr (std::is_same_v<T, KeyId>) {
-                return get_string(v);
+                return to_string(v);
             } else if constexpr (std::is_same_v<T, std::string>) {
                 return v;
             } else {

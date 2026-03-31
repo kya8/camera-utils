@@ -54,8 +54,8 @@ enum class KeyId {
     GpsData,
 };
 
-std::string_view get_string(GroupId id) noexcept;
-std::string_view get_string(KeyId id) noexcept;
+std::string_view to_string(GroupId id) noexcept;
+std::string_view to_string(KeyId id) noexcept;
 
 namespace details {
 
