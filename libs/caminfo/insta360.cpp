@@ -78,56 +78,54 @@ namespace caminfo {
 namespace {
 
 void insert_protobuf_metadata(VarMap& map,
-                              const google::protobuf::Message& message,
-                              const std::string& prepend)
+                              const google::protobuf::Message& message
+                              )
 {
     const auto desc = message.GetDescriptor();
     const auto refl = message.GetReflection();
-    const bool is_top_level = prepend.empty();
     for (auto i = 0; i < desc->field_count(); ++i) {
         const auto field_desc = desc->field(i);
-        const auto field_name = field_desc->name();
+        const auto field_name = std::string(field_desc->name());
         const auto cpp_type = field_desc->cpp_type();
         const auto type     = field_desc->type();
         if (!field_desc->is_optional())
             continue;
         if (!refl->HasField(message, field_desc))
             continue;
-        if (is_top_level && eq_one(field_name, "offset", "offset_v2", "offset_v3"))
+        if (eq_one(field_name, "offset", "offset_v2", "offset_v3"))
             continue;
 
-        const auto concat_name = std::string(prepend) += field_name;
         switch(cpp_type) {
         using T  = google::protobuf::FieldDescriptor::CppType;
         using T_ = google::protobuf::FieldDescriptor::Type;
         case(T::CPPTYPE_INT32):
-            map[concat_name] = (types::Int)refl->GetInt32(message, field_desc);
+            map[field_name] = (types::Int)refl->GetInt32(message, field_desc);
             break;
         case(T::CPPTYPE_INT64):
-            map[concat_name] = (types::Int)refl->GetInt64(message, field_desc);
+            map[field_name] = (types::Int)refl->GetInt64(message, field_desc);
             break;
         case(T::CPPTYPE_UINT32):
-            map[concat_name] = (types::UInt)refl->GetUInt32(message, field_desc);
+            map[field_name] = (types::UInt)refl->GetUInt32(message, field_desc);
             break;
         case(T::CPPTYPE_UINT64):
-            map[concat_name] = (types::UInt)refl->GetUInt64(message, field_desc);
+            map[field_name] = (types::UInt)refl->GetUInt64(message, field_desc);
             break;
         case(T::CPPTYPE_DOUBLE):
-            map[concat_name] = refl->GetDouble(message, field_desc);
+            map[field_name] = refl->GetDouble(message, field_desc);
             break;
         case(T::CPPTYPE_FLOAT):
-            map[concat_name] = refl->GetFloat(message, field_desc);
+            map[field_name] = refl->GetFloat(message, field_desc);
             break;
         case(T::CPPTYPE_BOOL):
-            map[concat_name] = refl->GetBool(message, field_desc);
+            map[field_name] = refl->GetBool(message, field_desc);
             break;
         case(T::CPPTYPE_STRING):
             if (type == T_::TYPE_STRING) {
-                map[concat_name] = refl->GetString(message, field_desc);
+                map[field_name] = refl->GetString(message, field_desc);
             } else if (type == T_::TYPE_BYTES) {
                 const auto str = refl->GetString(message, field_desc);
                 types::RawBytes vec(str.cbegin(), str.cend());
-                map[concat_name] = std::move(vec);
+                map[field_name] = std::move(vec);
             }
             break;
         case(T::CPPTYPE_ENUM):
@@ -136,15 +134,15 @@ void insert_protobuf_metadata(VarMap& map,
             const auto enum_num = refl->GetEnumValue(message, field_desc);
             const auto enum_val_desc = enum_desc->FindValueByNumber(enum_num); // nullptr if num is invalid
             std::string display_name = std::format("{} ({})", (enum_val_desc ? enum_val_desc->name() : "Unknown value"),  enum_num);
-            map[concat_name] = std::move(display_name);
+            map[field_name] = std::move(display_name);
             break;
         }
         case(T::CPPTYPE_MESSAGE):
         {
             const auto& sub_msg = refl->GetMessage(message, field_desc);
             //const auto sub_msg_desc = field_desc->message_type();
-            const auto new_prepend = concat_name + '.';
-            insert_protobuf_metadata(map, sub_msg, new_prepend);
+            auto& inner_map = map[field_name].as_variant().emplace<VarMap>();
+            insert_protobuf_metadata(inner_map, sub_msg);
             break;
         }
         default:
@@ -227,7 +225,7 @@ detect_insta360(mp4utils::Mp4Stream& file, CameraInfo& info, bool metadata_only)
             Insta360Metadata metadata;
             if (metadata.ParseFromArray(buf.data(), (int)buf.size())) {
 
-                insert_protobuf_metadata(info.extras[GroupId::Metadata], metadata, "");
+                insert_protobuf_metadata(info.extras[GroupId::Metadata], metadata);
 
                 // ...
                 if (metadata.has_offset()) {
