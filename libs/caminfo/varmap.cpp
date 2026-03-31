@@ -229,7 +229,7 @@ to_string(const Value& var, std::size_t max_vec_len) noexcept
 }
 
 std::string_view
-to_string(const VarMap::key_type& key) noexcept
+to_string(const Key& key) noexcept
 {
     return std::visit(
         []<typename T>(const T& v) -> std::string_view {
