@@ -106,6 +106,7 @@ private:
         }(), ...);
         os << ')';
     }
+
 public:
     template<typename T, std::enable_if_t<(my_tuple_size<T> > 0), int> = 0>
     ST& push(ST& os, const T& tup) const {
@@ -113,6 +114,45 @@ public:
         return os;
     }
 
+    ST& push(ST& os, const Array& array) const {
+        os << "Array: [";
+        for (std::size_t i = 0; i < array.size(); ++i) {
+            if (i > 0) {
+                os << ", ";
+            }
+            std::visit(
+                [&] (const auto& val) {
+                    push(os, val);
+                }
+                , array[i]);
+        }
+        os << ']';
+        return os;
+    }
+
+    ST& push(ST& os, const VarMap& map) const {
+        os << "Map: {";
+        bool first = true;
+        for (const auto& [key, val] : map) {
+            if (!first) {
+                os << ", ";
+            }
+            first = false;
+            os << to_string(key) << ": ";
+            std::visit(
+                [&] (const auto& v) {
+                    push(os, v);
+                }
+                , val);
+        }
+        os << '}';
+        return os;
+    }
+
+    ST& push(ST& os, const std::monostate&) const {
+        os << "(Empty data)";
+        return os;
+    }
 
     template <typename T>
     Ret operator()(const T& v) const {
@@ -137,16 +177,12 @@ public:
         return "Any";
     }
 #endif
-
-    Ret operator()(const KeyId id) const {
-        return (Ret)get_string(id);
-    }
 };
 
 }
 
 std::string
-to_string(const VarType& var, std::size_t max_vec_len) noexcept
+to_string(const Value& var, std::size_t max_vec_len) noexcept
 {
 #if 0
     const auto visitor = [](auto&& arg) -> std::string {
@@ -192,10 +228,19 @@ to_string(const VarType& var, std::size_t max_vec_len) noexcept
     return std::visit(Formatter{max_vec_len}, var);
 }
 
-std::string 
+std::string_view
 to_string(const VarMap::key_type& key) noexcept
 {
-    return std::visit(Formatter{}, key);
+    return std::visit(
+        []<typename T>(const T& v) -> std::string_view {
+            if constexpr (std::is_same_v<T, KeyId>) {
+                return get_string(v);
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                return v;
+            } else {
+                static_assert(false);
+            }
+        }, key);
 }
 
 #if 0

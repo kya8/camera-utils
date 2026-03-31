@@ -73,7 +73,16 @@ using unique_variant_t = typename append_unique_types<std::variant<std::monostat
 
 } /* details ns */
 
-using VarType = details::unique_variant_t<types::String,
+// A recursive variant type that can hold any of the supported types,
+// including nested Maps and Arrays that contain the variant itself.
+struct Value;
+
+using VarMap = std::map<std::variant<KeyId, std::string>, Value>; // The key can be either a well-known tag (KeyId) or an arbitrary string.
+using Array = std::vector<Value>;
+
+// The Array and VarMap types are recursive, to support arbitarily nested heterogeneous data structures.
+// Tuples (static arrays) and vectors are for large homogeneous data, to allow for more efficient storage and processing.
+using Variant = details::unique_variant_t<types::String,
                                           types::Bool,
                                           types::Int,
                                           types::UInt,
@@ -106,9 +115,20 @@ using VarType = details::unique_variant_t<types::String,
                                           ,
                                           std::any
 #endif
+                                          ,
+                                          Array,
+                                          VarMap
                                           >;
 
-using VarMap = std::map<std::variant<KeyId, std::string>, VarType>; // key can be either pre-defined Ids or arbitary string.
+struct Value: Variant {
+    using Variant::Variant;   // inherit constructors
+    using Variant::operator=; // inherit assignment operators
+
+    const Variant& as_variant() const & noexcept { return *this; }
+    Variant& as_variant() & noexcept { return *this; }
+    const Variant&& as_variant() const && noexcept { return std::move(*this); }
+    Variant&& as_variant() && noexcept { return std::move(*this); }
+};
 
 struct GroupedVarMap : std::map<GroupId, VarMap> {
 
@@ -127,11 +147,11 @@ struct GroupedVarMap : std::map<GroupId, VarMap> {
 
     template<typename T>
     const auto& get_ex(GroupId group, const VarMap::key_type& key) const {
-        try {
-            return std::get<T>(at(group).at(key));
-        } catch (const std::bad_variant_access&) {
-            throw std::out_of_range("bad value type");
+        const auto p = std::get_if<T>(&at(group).at(key));
+        if (!p) {
+            throw std::out_of_range("Value type mismatch");
         }
+        return *p;
     }
 
     template<typename T>
@@ -150,8 +170,8 @@ struct GroupedVarMap : std::map<GroupId, VarMap> {
 
 };
 
-std::string to_string(const VarType& var, std::size_t max_vec_len = 50) noexcept;
-std::string to_string(const VarMap::key_type& key) noexcept;
+std::string to_string(const Value& var, std::size_t max_vec_len = 50) noexcept;
+std::string_view to_string(const VarMap::key_type& key) noexcept;
 
 } // namespace caminfo
 
