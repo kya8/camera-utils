@@ -63,7 +63,7 @@ CameraInfo::describe() const noexcept
     const auto metadata = extras.find(GroupId::NormalizedMetadata);
     if(metadata != extras.cend()) {
         for (const auto& [key, val] : metadata->second) {
-            ret << key_to_string(key) << ": " << var_to_string(val) << "; ";
+            ret << to_string(key) << ": " << to_string(val) << "; ";
         }
     }
 

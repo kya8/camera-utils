@@ -91,15 +91,15 @@ int main_camerainfo(int argc, char** argv) noexcept
             for (const auto& [group, map] : info->extras) {
                 if (stdout_is_colorterm)
                     std::print("\033[33m");
-                std::print("<Group: {}>\n", get_group_id_string(group));
+                std::print("<Group: {}>\n", get_string(group));
                 if (stdout_is_colorterm)
                     std::print("\033[0m" );
                 for (const auto& [key, value] : map) {
                     if (stdout_is_colorterm)
-                        std::print("  \033[36m{:<{}}\033[0m", key_to_string(key), width - 2);
+                        std::print("  \033[36m{:<{}}\033[0m", to_string(key), width - 2);
                     else
-                        std::print("  {:<{}}", key_to_string(key), width - 2);
-                    std::print(": {}\n", var_to_string(value, max_vec_len));
+                        std::print("  {:<{}}", to_string(key), width - 2);
+                    std::print(": {}\n", to_string(value, max_vec_len));
                 }
             }
 

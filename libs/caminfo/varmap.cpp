@@ -5,7 +5,7 @@
 namespace caminfo {
 
 std::string_view
-get_group_id_string(GroupId id) noexcept
+get_string(GroupId id) noexcept
 {
     switch(id) {
     case GroupId::NormalizedMetadata : return "NormalizedMetadata";
@@ -18,7 +18,7 @@ get_group_id_string(GroupId id) noexcept
     }
 }
 std::string_view
-get_key_id_string(KeyId id) noexcept
+get_string(KeyId id) noexcept
 {
     switch(id) {
     case KeyId::CameraModel               : return "CameraModel";
@@ -139,14 +139,14 @@ public:
 #endif
 
     Ret operator()(const KeyId id) const {
-        return (Ret)get_key_id_string(id);
+        return (Ret)get_string(id);
     }
 };
 
 }
 
 std::string
-var_to_string(const VarType& var, std::size_t max_vec_len) noexcept
+to_string(const VarType& var, std::size_t max_vec_len) noexcept
 {
 #if 0
     const auto visitor = [](auto&& arg) -> std::string {
@@ -193,7 +193,7 @@ var_to_string(const VarType& var, std::size_t max_vec_len) noexcept
 }
 
 std::string 
-key_to_string(const VarMap::key_type& key) noexcept
+to_string(const VarMap::key_type& key) noexcept
 {
     return std::visit(Formatter{}, key);
 }

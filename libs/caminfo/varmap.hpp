@@ -53,8 +53,8 @@ enum class KeyId {
     GpsData,
 };
 
-std::string_view get_group_id_string(GroupId id) noexcept;
-std::string_view get_key_id_string(KeyId id) noexcept;
+std::string_view get_string(GroupId id) noexcept;
+std::string_view get_string(KeyId id) noexcept;
 
 namespace details {
 
@@ -150,8 +150,8 @@ struct GroupedVarMap : std::map<GroupId, VarMap> {
 
 };
 
-std::string var_to_string(const VarType& var, std::size_t max_vec_len = 50) noexcept;
-std::string key_to_string(const VarMap::key_type& key) noexcept;
+std::string to_string(const VarType& var, std::size_t max_vec_len = 50) noexcept;
+std::string to_string(const VarMap::key_type& key) noexcept;
 
 } // namespace caminfo
 
