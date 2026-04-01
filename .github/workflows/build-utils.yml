@@ -44,9 +44,9 @@ jobs:
         fetch-depth: 0
         fetch-tags: true
     
-    - name: Cache deps built with vcpkg
-      id: cache-exports
-      uses: actions/cache@v4
+    - name: Restore vcpkg exports from cache
+      id: cache-restore-exports
+      uses: actions/cache/restore@v5
       with:
         path: ${{ env.vcpkg_exports }}
         # Cache invalidation factors: vcpkg triplet, changes to vcpkg.json or vcpkg-configuration.json
@@ -65,11 +65,18 @@ jobs:
         arch: x64
 
     - name: Install and export deps if cache not hit
-      if: steps.cache-exports.outputs.cache-hit != 'true'
+      if: steps.cache-restore-exports.outputs.cache-hit != 'true'
       run: |
         mkdir -p "${{ env.vcpkg_exports }}"
         vcpkg install --triplet=${{ matrix.vcpkg_triplet }}
         vcpkg export --triplet=${{ matrix.vcpkg_triplet }} --raw --output-dir="${{ env.vcpkg_exports }}" --output=deps
+
+    - name: Save cache of vcpkg exports
+      if: steps.cache-restore-exports.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ${{ env.vcpkg_exports }}
+        key: ${{ steps.cache-restore-exports.outputs.cache-primary-key }}
 
     - name: Configure CMake
       run: >
