@@ -13,10 +13,14 @@ defaults:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    
+    container:
+      image: ${{ matrix.container-image }}
+      volumes:
+        - /usr/local/share/vcpkg:/vcpkg
+
     env:
       VCPKG_BINARY_SOURCES: "clear" # Disable binary caching, since we cache exports ourselves
-      vcpkg_exports: "${{ github.workspace }}/vcpkg_exports"
+      vcpkg_exports: "vcpkg_exports"
 
     strategy:
       fail-fast: false
@@ -34,6 +38,7 @@ jobs:
             vcpkg_triplet: "x64-windows-static-md"
           - os: ubuntu-latest
             vcpkg_triplet: "x64-linux"
+            container-image: "fedora:latest"
         #c_compiler: [gcc, clang, cl]
 
     steps:
@@ -43,7 +48,7 @@ jobs:
         # required for generating version
         fetch-depth: 0
         fetch-tags: true
-    
+
     - name: Restore vcpkg exports from cache
       id: cache-restore-exports
       uses: actions/cache/restore@v5
@@ -55,7 +60,7 @@ jobs:
     - name: Set reusable strings
       id: strings
       run: |
-        echo "build_dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+        echo "build_dir=${GITHUB_WORKSPACE}/build" >> "$GITHUB_OUTPUT"
 
     - name: Set up MSVC environment on Windows
       # Required for CMake generators other than MSBuild
@@ -63,6 +68,12 @@ jobs:
       uses: TheMrMilchmann/setup-msvc-dev@v4
       with:
         arch: x64
+
+    - name: Setup build tools on fedora container
+      if: startsWith(matrix.container-image, 'fedora')
+      run: |
+        dnf install -y cmake ninja tar zstd g++ libstdc++-static libstdc++-devel libatomic-static pkgconf nasm bison automake autoconf autoconf-archive make git unzip zip
+        echo "/vcpkg" >> "$GITHUB_PATH"
 
     - name: Install and export deps if cache not hit
       if: steps.cache-restore-exports.outputs.cache-hit != 'true'
@@ -81,7 +92,7 @@ jobs:
     - name: Configure CMake
       run: >
         cmake -G Ninja
-        -S '${{ github.workspace }}'
+        -S "${GITHUB_WORKSPACE}"
         -B '${{ steps.strings.outputs.build_dir }}'
         -D CMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -D CMAKE_TOOLCHAIN_FILE="${vcpkg_exports}/deps/scripts/buildsystems/vcpkg.cmake"
