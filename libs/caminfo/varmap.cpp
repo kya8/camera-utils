@@ -52,7 +52,7 @@ to_string(KeyId id) noexcept
 
 namespace {
 
-using ST = std::ostringstream;
+using Stream = std::ostream;
 
 template<typename, typename = void>
 constexpr int my_tuple_size = -1;
@@ -64,8 +64,8 @@ struct Formatter {
     std::size_t max_vec_elem = 50; // no limit if set to 0
     using Ret = std::string;
 
-    template<class T, typename = std::enable_if_t< is_streamable_v<ST, T>> >
-    ST& push(ST& os, const T& arg) const
+    template<class T, typename = std::enable_if_t< is_streamable_v<Stream, T>> >
+    Stream& push(Stream& os, const T& arg) const
     {
         if constexpr (std::is_same_v<T, bool>)
             os << (arg? "true" : "false");
@@ -77,7 +77,7 @@ struct Formatter {
     }
 
     template<class T>
-    ST& push(ST& os, const std::vector<T>& arg) const
+    Stream& push(Stream& os, const std::vector<T>& arg) const
     {
         const auto max_vec_len = max_vec_elem / (my_tuple_size<T> < 0 ? 1 : my_tuple_size<T>);
 
@@ -97,7 +97,7 @@ struct Formatter {
 private:
     // helper for unrolling tuple-like
     template<typename Tuple, std::size_t ...Idx>
-    void push_tuple_impl(ST& os, const Tuple& tup, std::index_sequence<Idx...>) const {
+    void push_tuple_impl(Stream& os, const Tuple& tup, std::index_sequence<Idx...>) const {
         os << '(';
         ([&]{
             if constexpr (Idx > 0)
@@ -109,12 +109,12 @@ private:
 
 public:
     template<typename T, std::enable_if_t<(my_tuple_size<T> > 0), int> = 0>
-    ST& push(ST& os, const T& tup) const {
+    Stream& push(Stream& os, const T& tup) const {
         push_tuple_impl(os, tup, std::make_index_sequence<my_tuple_size<T>>{});
         return os;
     }
 
-    ST& push(ST& os, const Array& array) const {
+    Stream& push(Stream& os, const Array& array) const {
         os << "Array: [";
         for (std::size_t i = 0; i < array.size(); ++i) {
             if (i > 0) {
@@ -130,7 +130,7 @@ public:
         return os;
     }
 
-    ST& push(ST& os, const VarMap& map) const {
+    Stream& push(Stream& os, const VarMap& map) const {
         os << '{';
         bool first = true;
         for (const auto& [key, val] : map) {
@@ -149,7 +149,7 @@ public:
         return os;
     }
 
-    ST& push(ST& os, const std::monostate&) const {
+    Stream& push(Stream& os, const std::monostate&) const {
         os << "(Empty data)";
         return os;
     }
@@ -161,8 +161,9 @@ public:
         } else if constexpr (std::is_constructible_v<Ret, const T&>) {
             return Ret(v);
         } else {
-            ST os;
-            return std::move(push(os, v)).str(); // C++20 allows move out the string buffer
+            std::ostringstream os;
+            push(os, v);
+            return std::move(os).str(); // C++20 allows move out the string buffer
         }
     }
 
@@ -243,22 +244,20 @@ to_string(const Key& key) noexcept
         }, key);
 }
 
-#if 0
-
-template<class ...Ts>
-ST& operator<<(ST& os, const std::tuple<Ts...>& t)
+std::ostream& operator<<(std::ostream& os, const VarMap& map)
 {
-    os << "(";
-    std::apply(
-        [&os](const Ts&... elem) {
-            bool first = true;
-            ((os << (first? "" : ", ") << elem, first=false),...); // fold over IIFE for more
-        }, t
-    );
-    os << ")";
+    return Formatter{0}.push(os, map);
+}
+
+std::ostream& operator<<(std::ostream& os, const Value& val)
+{
+    std::visit(
+        [&](const auto& v) {
+            Formatter{0}.push(os, v);
+        }
+    , val);
+
     return os;
 }
 
-#endif
-
-}
+} // namespace caminfo

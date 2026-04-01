@@ -14,6 +14,7 @@
 #endif
 #include <utility>
 #include <compare>
+#include <ostream>
 
 namespace caminfo {
 
@@ -259,6 +260,8 @@ public:
 
 std::string to_string(const Value& var, std::size_t max_vec_len = 50) noexcept;
 std::string_view to_string(const Key& key) noexcept;
+std::ostream& operator<<(std::ostream& os, const VarMap& map);
+std::ostream& operator<<(std::ostream& os, const Value& val);
 
 template<typename T, typename ...Ts>
 requires (std::is_same_v<T, Ts> || ...)
