@@ -11,6 +11,8 @@
 #include "version.hpp"
 #include "sys_utils.hpp"
 #include <range.hpp>
+#include "string_utils.hpp"
+#include <iostream>
 
 using namespace caminfo;
 
@@ -22,21 +24,24 @@ int main_camerainfo(int argc, char** argv) noexcept
     bool dump_quat = false;
     std::size_t max_vec_len = 50;
     bool print_version = false;
+    bool raw_output = false;
     {
         bool err_flag = 0;
         bool positional_only = false;
         for (int i = 1; i < argc && !err_flag; ++i) {
             if (positional_only) {
                 files.push_back(argv[i]);
-            } else if (!std::strcmp(argv[i], "--")) { // After '--', all arguments are treated as input file names.
+            } else if (match(argv[i], "--")) { // After '--', all arguments are treated as input file names.
                 positional_only = true;
-            } else if (!std::strcmp(argv[i], "-m")) {
+            } else if (match(argv[i], "-m")) {
                 metadata_only = true;
-            } else if (!std::strcmp(argv[i], "-dg")) {
+            } else if (match(argv[i], "-j")) {
+                raw_output = true;
+            } else if (match(argv[i], "-dg")) {
                 dump_gyro = true;
-            } else if (!std::strcmp(argv[i], "-dq")) {
+            } else if (match(argv[i], "-dq")) {
                 dump_quat = true;
-            } else if (!std::strcmp(argv[i], "-l")) {
+            } else if (match(argv[i], "-l")) {
                 if (++i < argc) {
                     char* end;
                     max_vec_len = std::strtoul(argv[i], &end, 0);
@@ -46,7 +51,7 @@ int main_camerainfo(int argc, char** argv) noexcept
                 else {
                     err_flag = 1;
                 }
-            } else if (!std::strcmp(argv[i], "-V")) {
+            } else if (match(argv[i], "-V", "--version")) {
                 print_version = true;
                 break;
             } else {
@@ -94,12 +99,16 @@ int main_camerainfo(int argc, char** argv) noexcept
                 std::print("<Group: {}>\n", to_string(group));
                 if (stdout_is_colorterm)
                     std::print("\033[0m" );
-                for (const auto& [key, value] : map) {
-                    if (stdout_is_colorterm)
-                        std::print("  \033[36m{:<{}}\033[0m", to_string(key), width - 2);
-                    else
-                        std::print("  {:<{}}", to_string(key), width - 2);
-                    std::print(": {}\n", to_string(value, max_vec_len));
+                if (raw_output) {
+                    std::cout << map << '\n';
+                } else {
+                    for (const auto& [key, value] : map) {
+                        if (stdout_is_colorterm)
+                            std::print("  \033[36m{:<{}}\033[0m", to_string(key), width - 2);
+                        else
+                            std::print("  {:<{}}", to_string(key), width - 2);
+                        std::print(": {}\n", to_string(value, max_vec_len));
+                    }
                 }
             }
 
