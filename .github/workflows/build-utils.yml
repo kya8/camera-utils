@@ -38,7 +38,7 @@ jobs:
 
     steps:
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         # required for generating version
         fetch-depth: 0
