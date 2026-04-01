@@ -18,7 +18,8 @@ using namespace caminfo;
 
 namespace {
 
-const auto& help_msg = R"^^(camerainfo: Extract and display camera information from video files.
+const auto& help_msg =
+R"^^(camerainfo: Extract and display camera information from video files.
 
 Usage: camerainfo <FILES...> [OPTIONS...]
 
@@ -90,7 +91,7 @@ int main_camerainfo(int argc, char** argv) noexcept
     }
 
     if (show_help) {
-        std::print(help_msg);
+        std::print("{}", help_msg);
         return 0;
     }
 
