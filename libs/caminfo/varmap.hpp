@@ -13,6 +13,7 @@
 #include <any>
 #endif
 #include <utility>
+#include <compare>
 
 namespace caminfo {
 
@@ -57,7 +58,7 @@ enum class KeyId {
 std::string_view to_string(GroupId id) noexcept;
 std::string_view to_string(KeyId id) noexcept;
 
-namespace details {
+namespace detail {
 
 template <typename T, typename...>
 struct append_unique_types { // all non-unique types will eventually inherit from this
@@ -72,7 +73,18 @@ struct append_unique_types<TMPL<Ts...>, U, Us...> : std::conditional_t<(std::dis
 template <typename ...Ts>
 using unique_variant_t = typename append_unique_types<std::variant<std::monostate>, Ts...>::type;
 
-} /* details ns */
+// Helper to get the index of a type in a parameter pack.
+template<typename T, typename T0, typename ...Ts>
+requires std::is_same_v<T, T0> || (std::is_same_v<T, Ts>||...)
+constexpr int get_index() {
+    if constexpr (std::is_same_v<T, T0>) {
+        return 0;
+    } else {
+        return 1 + get_index<T, Ts...>();
+    }
+}
+
+} /* namespace detail */
 
 // A recursive variant type that can hold any of the supported types,
 // including nested Maps and Arrays that contain the variant itself.
@@ -92,14 +104,33 @@ constexpr std::strong_ordering operator<=>(const Key& key, std::string_view sv) 
     }, key);
 }
 
-constexpr std::strong_ordering operator<=>(const Key& key, KeyId id) noexcept {
-    return std::visit([&]<typename T>(const T& val) {
-        if constexpr (std::is_same_v<T, KeyId>) {
-            return val <=> id;
-        } else {
-            return 1 <=> 0;
+// constexpr std::strong_ordering operator<=>(const Key& key, KeyId id) noexcept {
+//     return std::visit([&]<typename T>(const T& val) {
+//         if constexpr (std::is_same_v<T, KeyId>) {
+//             return val <=> id;
+//         } else {
+//             return 1 <=> 0;
+//         }
+//     }, key);
+// }
+
+// A generic comparison operator for std::variant that allows comparing
+// the contained value directly with a type T, if it is one of the alternatives.
+// Note that this does not allow implicit conversions from T.
+template<typename ...Ts, typename T>
+requires (std::is_same_v<T, Ts> || ...)
+constexpr auto operator<=>(const std::variant<Ts...>& var, const T& rhs)
+{
+    return std::visit(
+        [&]<typename V>(const V& val) ->
+        std::common_comparison_category_t<std::compare_three_way_result_t<std::size_t>, std::compare_three_way_result_t<T>> {
+            if constexpr (std::is_same_v<V, T>) {
+                return val <=> rhs;
+            } else {
+                return detail::get_index<V, Ts...>() <=> detail::get_index<T, Ts...>();
+            }
         }
-    }, key);
+    , var);
 }
 
 using VarMap = std::map<Key, Value, std::less<void>>; // The key can be either a well-known tag (KeyId) or an arbitrary string.
@@ -108,43 +139,43 @@ using Array = std::vector<Value>;
 
 // The Array and VarMap types are recursive, to support arbitarily nested heterogeneous data structures.
 // Tuples (static arrays) and vectors are for large homogeneous data, to allow for more efficient storage and processing.
-using Variant = details::unique_variant_t<types::String,
-                                          types::Bool,
-                                          types::Int,
-                                          types::UInt,
-                                          types::Double,
-                                          types::VecD,
-                                          types::VecI,
-                                          types::RawBytes,
+using Variant = detail::unique_variant_t<types::String,
+                                         types::Bool,
+                                         types::Int,
+                                         types::UInt,
+                                         types::Double,
+                                         types::VecD,
+                                         types::VecI,
+                                         types::RawBytes,
 
-                                          types::GyroVec,
-                                          types::AccVec,
-                                          types::ExposureVec,
-                                          types::QuaternionVec,
-                                          types::TimedQuaternionVec,
-                                          types::GPSDataVec,
+                                         types::GyroVec,
+                                         types::AccVec,
+                                         types::ExposureVec,
+                                         types::QuaternionVec,
+                                         types::TimedQuaternionVec,
+                                         types::GPSDataVec,
 
-                                          //types::Tuple2d,
-                                          //types::Tuple3d,
-                                          //types::Tuple4d,
-                                          //types::Tuple5d,
-                                          std::vector<types::Tuple2d>,
-                                          std::vector<types::Tuple3d>,
-                                          std::vector<types::Tuple4d>,
-                                          std::vector<types::Tuple5d>,
+                                         //types::Tuple2d,
+                                         //types::Tuple3d,
+                                         //types::Tuple4d,
+                                         //types::Tuple5d,
+                                         std::vector<types::Tuple2d>,
+                                         std::vector<types::Tuple3d>,
+                                         std::vector<types::Tuple4d>,
+                                         std::vector<types::Tuple5d>,
 
-                                          std::vector<types::Array2d>,
-                                          std::vector<types::Array3d>,
-                                          std::vector<types::Array4d>,
-                                          std::vector<types::Array5d>
+                                         std::vector<types::Array2d>,
+                                         std::vector<types::Array3d>,
+                                         std::vector<types::Array4d>,
+                                         std::vector<types::Array5d>
 #ifdef CAMINFO_ENABLE_ANY
-                                          ,
-                                          std::any
+                                         ,
+                                         std::any
 #endif
-                                          ,
-                                          Array,
-                                          VarMap
-                                          >;
+                                         ,
+                                         Array,
+                                         VarMap
+                                         >;
 
 struct Value: Variant {
     using Variant::Variant;   // inherit constructors
