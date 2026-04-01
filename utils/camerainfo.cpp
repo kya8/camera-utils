@@ -16,6 +16,26 @@
 
 using namespace caminfo;
 
+namespace {
+
+const auto& help_msg = R"^^(camerainfo: Extract and display camera information from video files.
+
+Usage: camerainfo <FILES...> [OPTIONS...]
+
+Options:
+ --      Treat all following arguments as input file names, even if they start with '-'.
+ -m      Only extract metadata, skip sensor data and other streaming data.
+ -j      Output a raw JSON-like format for easier parsing.
+ -dg     Dump gyroscope data (if available) in CSV format for each input.
+ -dq     Dump camera quaternion data (if available) in CSV format.
+ -l <N>  Limit the number of elements printed for vector types to N. Default is 50. Set to 0 for no limit.
+         Does not affect '-j' output, which always prints the full data.
+ -V      Display version information and exit.
+ -h      Display this help message and exit.
+)^^";
+
+} // namespace
+
 int main_camerainfo(int argc, char** argv) noexcept
 {
     std::vector<const char*> files;
@@ -24,6 +44,7 @@ int main_camerainfo(int argc, char** argv) noexcept
     bool dump_quat = false;
     std::size_t max_vec_len = 50;
     bool print_version = false;
+    bool show_help = false;
     bool raw_output = false;
     {
         bool err_flag = 0;
@@ -51,6 +72,9 @@ int main_camerainfo(int argc, char** argv) noexcept
                 else {
                     err_flag = 1;
                 }
+            } else if (match(argv[i], "-h", "--help")) {
+                show_help = true;
+                break;
             } else if (match(argv[i], "-V", "--version")) {
                 print_version = true;
                 break;
@@ -59,10 +83,15 @@ int main_camerainfo(int argc, char** argv) noexcept
             }
         }
 
-        if (err_flag || (files.empty() && !print_version)) {
-            std::println("Usage: camerainfo <video_files> [-l <max_vec_length>] [-m] [-dg] [-dq] [-V]");
+        if (err_flag || (files.empty() && !print_version && !show_help)) {
+            std::print("Invaild argument.\nPass '-h' for help.\n");
             return 2;
         }
+    }
+
+    if (show_help) {
+        std::print(help_msg);
+        return 0;
     }
 
     if (print_version) {
