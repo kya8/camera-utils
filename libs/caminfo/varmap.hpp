@@ -15,11 +15,13 @@
 #include <utility>
 #include <compare>
 #include <ostream>
+#include <cassert>
 
 namespace caminfo {
 
+// Well-known group id.
 enum class GroupId {
-    NormalizedMetadata, // indexed by KeyId
+    NormalizedMetadata, // Holds well-known metadata represented by KeyId.
     Metadata,
     SensorData,
     ProcessedData,
@@ -27,6 +29,7 @@ enum class GroupId {
     Other
 };
 
+// Well-know key tag for commonly used types of metadata.
 enum class KeyId {
     CameraModel,
     SubModel,
@@ -56,11 +59,18 @@ enum class KeyId {
     GpsData,
 };
 
+/**
+ * Get a informative string of the given GroupId.
+ */
 std::string_view to_string(GroupId id) noexcept;
+/**
+ * Get a informative string of the given KeyId.
+ */
 std::string_view to_string(KeyId id) noexcept;
 
 namespace detail {
 
+// Append types while skipping duplicates.
 template <typename T, typename...>
 struct append_unique_types { // all non-unique types will eventually inherit from this
     using type = T;
@@ -88,56 +98,15 @@ constexpr int get_index() {
 } /* namespace detail */
 
 // A recursive variant type that can hold any of the supported types,
-// including nested Maps and Arrays that contain the variant itself.
+// including nested Map and Array that contain the variant itself.
 struct Value;
 
+// The key type for the map, can be either a well-known KeyId or an arbitrary string.
 using Key = std::variant<KeyId, std::string>;
-
-// Allows comparing variant keys with string_view directly.
-// They can be found by ADL, since Key's template parameter KeyId is in our namespace.
-constexpr std::strong_ordering operator<=>(const Key& key, std::string_view sv) noexcept {
-    return std::visit([&sv]<typename T>(const T& val) {
-        if constexpr (std::is_convertible_v<T, std::string_view>) {
-            return std::string_view(val) <=> sv; // Convert val to string_view to avoid recursion into this function.
-        } else {
-            return 0 <=> 1; // following std::variant's operator<=>
-        }
-    }, key);
-}
-
-// constexpr std::strong_ordering operator<=>(const Key& key, KeyId id) noexcept {
-//     return std::visit([&]<typename T>(const T& val) {
-//         if constexpr (std::is_same_v<T, KeyId>) {
-//             return val <=> id;
-//         } else {
-//             return 1 <=> 0;
-//         }
-//     }, key);
-// }
-
-// A generic comparison operator for std::variant that allows comparing
-// the contained value directly with a type T, if it is one of the alternatives.
-// Note that this does not allow implicit conversions from T.
-template<typename ...Ts, typename T>
-requires (std::is_same_v<T, Ts> || ...)
-constexpr auto operator<=>(const std::variant<Ts...>& var, const T& rhs)
-{
-    return std::visit(
-        [&]<typename V>(const V& val) ->
-        std::common_comparison_category_t<std::compare_three_way_result_t<std::size_t>, std::compare_three_way_result_t<T>> {
-            if constexpr (std::is_same_v<V, T>) {
-                return val <=> rhs;
-            } else {
-                return detail::get_index<V, Ts...>() <=> detail::get_index<T, Ts...>();
-            }
-        }
-    , var);
-}
-
-using VarMap = std::map<Key, Value, std::less<void>>; // The key can be either a well-known tag (KeyId) or an arbitrary string.
-                                                      // std::less<void> for transparent comparison.
+using VarMap = std::map<Key, Value, std::less<void>>; // std::less<void> for transparent comparison.
 using Array = std::vector<Value>;
 
+// The actual variant type.
 // The Array and VarMap types are recursive, to support arbitarily nested heterogeneous data structures.
 // Tuples (static arrays) and vectors are for large homogeneous data, to allow for more efficient storage and processing.
 using Variant = detail::unique_variant_t<types::String,
@@ -188,9 +157,52 @@ struct Value: Variant {
     Variant&& as_variant() && noexcept { return std::move(*this); }
 };
 
+// Allows comparing variant keys with string_view directly.
+// They can be found by ADL, since Key's template parameter KeyId is in our namespace.
+constexpr std::strong_ordering operator<=>(const Key& key, std::string_view sv) noexcept {
+    return std::visit([&sv]<typename T>(const T& val) {
+        if constexpr (std::is_convertible_v<T, std::string_view>) {
+            return std::string_view(val) <=> sv; // Convert val to string_view to avoid recursion into this function.
+        } else {
+            return 0 <=> 1; // following std::variant's operator<=>
+        }
+    }, key);
+}
+
+// constexpr std::strong_ordering operator<=>(const Key& key, KeyId id) noexcept {
+//     return std::visit([&]<typename T>(const T& val) {
+//         if constexpr (std::is_same_v<T, KeyId>) {
+//             return val <=> id;
+//         } else {
+//             return 1 <=> 0;
+//         }
+//     }, key);
+// }
+
+// A generic comparison operator for std::variant that allows comparing
+// the contained value directly with a type T, if it is one of the alternatives.
+// Note that this does not allow implicit conversions from T.
+template<typename ...Ts, typename T>
+requires (std::is_same_v<T, Ts> || ...)
+constexpr auto operator<=>(const std::variant<Ts...>& var, const T& rhs)
+{
+    return std::visit(
+        [&]<typename V>(const V& val) ->
+        std::common_comparison_category_t<std::compare_three_way_result_t<std::size_t>, std::compare_three_way_result_t<T>> {
+            if constexpr (std::is_same_v<V, T>) {
+                return val <=> rhs;
+            } else {
+                return detail::get_index<V, Ts...>() <=> detail::get_index<T, Ts...>();
+            }
+        }
+    , var);
+}
+
+// Requirement for looking up VarMap.
 template<typename K>
 concept KeyType = std::is_convertible_v<K, Key> || std::is_convertible_v<K, std::string_view>;
 
+// An outer map that gives a group id for each VarMap, to allow better organization of the metadata.
 struct GroupedVarMap : std::map<GroupId, VarMap> {
 
 private:
@@ -221,6 +233,13 @@ private:
     }
 
 public:
+    /**
+     * Get a pointer to the value requested by group id and Key.
+     * @tparam T  The expected type of the value. Must be one of the alternative types in `Value`. 
+     * @param group Group id.
+     * @param key   Key to look up.
+     * @return A pointer to the requested data if found and of the correct type, or nullptr otherwise.
+     */
     template<typename T, KeyType K>
     const T* get(GroupId group, const K& key) const noexcept {
         // if constexpr (std::is_convertible_v<K, std::string_view>) {
@@ -232,6 +251,14 @@ public:
         }
     }
 
+    /**
+     * Get a reference to the value requested by group id and Key.
+     * @tparam T  The expected type of the value. Must be one of the alternative types in `Value`. 
+     * @param group Group id.
+     * @param key   Key to look up.
+     * @return Reference to the requested value.
+     * @exception std::out_of_range if the group or key is not found, or the value type does not match.
+     */
     template<typename T, KeyType K>
     const auto& get_ex(GroupId group, const K& key) const {
         if constexpr (requires(VarMap m){ m.find(key); }) {
@@ -241,6 +268,14 @@ public:
         }
     }
 
+    /**
+     * Get a reference to the value requested by group id and Key, or return a default value if not found or type mismatch.
+     * @tparam T  The expected type of the value. Must be one of the alternative types in `Value`.
+     * @param group Group id.
+     * @param key   Key to look up.
+     * @param default_val The default value to return if the requested value is not found or has a different type.
+     * @return Reference to the requested value or the default value.
+     */
     template<typename T, KeyType K>
     const T& get_or(GroupId group, const K& key, const T& default_val) const noexcept {
         const auto p = get<T>(group, key);
@@ -248,6 +283,10 @@ public:
         return *p;
     }
 
+    /**
+     * Overload for temporary default value.
+     * Returns by value, so be careful with copying large data from the map.
+     */
     template<typename T, KeyType K>
     requires (!std::is_reference_v<T>) // T&& must be rvalue ref
     auto get_or(GroupId group, const K& key, T&& default_val = T{}) const noexcept {
@@ -258,21 +297,38 @@ public:
 
 };
 
+/**
+ * Converts a Value to a string representation.
+ * @param[in] var The value to convert.
+ * @param[in] max_vec_len The maximum number of scalars to include in the string representation for vectors.
+ *                        0 means no limit.
+ */
 std::string to_string(const Value& var, std::size_t max_vec_len = 50) noexcept;
+/**
+ * Converts a Key to a string representation.
+ * The returned string_view references a static string if the key is a KeyId.
+ * If the key is a string, the returned string_view references the string stored in the key.
+ */
 std::string_view to_string(const Key& key) noexcept;
+
 std::ostream& operator<<(std::ostream& os, const VarMap& map);
 std::ostream& operator<<(std::ostream& os, const Value& val);
 
+// TODO: Output Value/VarMap to std::FILE*
+
+// Unsafe getter for std::variant.
 template<typename T, typename ...Ts>
 requires (std::is_same_v<T, Ts> || ...)
 const T& get_unsafe(const std::variant<Ts...>& var) {
     if (const auto p = std::get_if<T>(&var)) {
         return *p;
     } else {
+        assert(("Type mismatch in get_unsafe()", false));
         std::unreachable();
     }
 }
 
+// Unsafe getter for std::variant.
 template<typename T, typename ...Ts>
 requires (std::is_same_v<T, Ts> || ...)
 T& get_unsafe(std::variant<Ts...>& var) {

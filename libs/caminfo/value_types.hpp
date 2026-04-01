@@ -7,6 +7,7 @@
 #include <string>
 #include <cstdint>
 
+// Commonly used data types for metadata.
 namespace caminfo::types {
 
 using String      = std::string;
