@@ -261,6 +261,7 @@ std::string to_string(const Value& var, std::size_t max_vec_len = 50) noexcept;
 std::string_view to_string(const Key& key) noexcept;
 
 template<typename T, typename ...Ts>
+requires (std::is_same_v<T, Ts> || ...)
 const T& get_unsafe(const std::variant<Ts...>& var) {
     if (const auto p = std::get_if<T>(&var)) {
         return *p;
@@ -270,6 +271,7 @@ const T& get_unsafe(const std::variant<Ts...>& var) {
 }
 
 template<typename T, typename ...Ts>
+requires (std::is_same_v<T, Ts> || ...)
 T& get_unsafe(std::variant<Ts...>& var) {
     return const_cast<T&>(get_unsafe<T>(std::as_const(var)));
 }
