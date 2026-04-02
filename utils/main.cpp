@@ -8,13 +8,13 @@
 
 namespace {
 
-struct MainFn {
+using namespace camera_utils;
+
+constexpr struct {
     using Fn = int(int, char**);
     std::string_view name;
     Fn& func;
-};
-
-constexpr MainFn main_fns[] {
+} main_fns[] {
     {"camerainfo", main_camerainfo},
     {"calibrator", main_calibrator},
     {"insta360_normalize", main_insta360_normalize},
@@ -32,7 +32,7 @@ int main(int argc, char** argv)
         }
     }
 
-    std::print(stderr, "Unknown program name: {}. Valid names are: {:n:s}\n",
+    std::print(stderr, "Unknown program name: {}.\nValid names are: {:n:s}.\n",
                name,
                main_fns | std::views::transform([](const auto& fn) { return fn.name; })
                );

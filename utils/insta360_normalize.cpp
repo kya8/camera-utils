@@ -519,7 +519,7 @@ struct Cfg {
 
 } // unnamed namespace
 
-int main_insta360_normalize(int argc, char** argv) noexcept
+int camera_utils::main_insta360_normalize(int argc, char** argv) noexcept
 {
     return Cfg{}.run(argc, argv);
 }

@@ -37,7 +37,7 @@ Options:
 
 } // namespace
 
-int main_camerainfo(int argc, char** argv) noexcept
+int camera_utils::main_camerainfo(int argc, char** argv) noexcept
 {
     std::vector<const char*> files;
     bool metadata_only = false;

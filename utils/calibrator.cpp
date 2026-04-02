@@ -179,7 +179,7 @@ auto format_mat(const cv::Mat& mat, cv::Formatter::FormatType fmt = cv::Formatte
 } // namespace
 
 
-int main_calibrator(int argc, char** argv) noexcept
+int camera_utils::main_calibrator(int argc, char** argv) noexcept
 try
 {
     fs::path dir, img_ext, report;
