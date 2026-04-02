@@ -69,10 +69,11 @@ jobs:
       with:
         arch: x64
 
-    - name: Setup build environment for container
+    - name: Setup the container
       if: ${{ matrix.container-image != '' }}
       run: |
         echo "/vcpkg" >> "$GITHUB_PATH"
+        git config --global --add safe.directory "${GITHUB_WORKSPACE}"
 
     - name: Install and export deps if cache not hit
       if: steps.cache-restore-exports.outputs.cache-hit != 'true'
