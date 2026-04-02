@@ -23,8 +23,8 @@ bool get_yn(bool default_val = false) noexcept
     return ans != 'n' && ans != 'N';
 }
 
-const auto help_msg =
-R"(^^(mp4join: Utility for joining consecutive MP4 files.
+const auto& help_msg =
+R"^^(mp4join: Utility for joining consecutive MP4 files.
 
 Usage: mp4join <FILE_1> <FILE_2> [...] [-o OUTPUT]
 
@@ -33,7 +33,7 @@ Options:
   -f, --force            Overwrite existing output file without asking for confirmation.
   -V, --version          Print version information and exit.
   -h, --help             Print this help message and exit.
-^^)";
+)^^";
 
 } // namespace
 
@@ -56,7 +56,7 @@ int main_mp4join(int argc, char** argv) noexcept
                 print_version = true;
                 break;
             } else if (match(argv[i], "-h", "--help")) {
-                std::println("{}", help_msg);
+                std::print("{}", help_msg);
                 return 0;
             } else {
                 inputs.emplace_back(argv[i]);
