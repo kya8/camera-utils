@@ -2,7 +2,7 @@ find_package(OpenCV 4.4 REQUIRED core imgcodecs imgproc calib3d)
 find_package(Threads REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
 
-set(MULTI_CALL_NAMES calibrator insta360_normalize mp4_join)
+set(MULTI_CALL_NAMES calibrator insta360_normalize mp4join)
 set(MAIN_NAME camerainfo) # This is arbitary
 
 add_executable(camera_utils
@@ -10,7 +10,7 @@ camera_utils.hpp
 calibrator.cpp
 camerainfo.cpp
 insta360_normalize.cpp
-mp4_join.cpp
+mp4join.cpp
 main.cpp
 )
 

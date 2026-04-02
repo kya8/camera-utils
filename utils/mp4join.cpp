@@ -37,7 +37,7 @@ Options:
 
 } // namespace
 
-int main_mp4_join(int argc, char** argv) noexcept
+int main_mp4join(int argc, char** argv) noexcept
 {
     std::vector<const char*> inputs;
     fs::path output;

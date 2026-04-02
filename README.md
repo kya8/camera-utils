@@ -14,7 +14,7 @@ Utilities and libraries for working with video files produced by some cameras.
 
 * `insta360_normalize`: Undistort panoramic images from Insta360 cameras.
 
-* `mp4_join`: Join consecutive mp4 files in a lossless manner. Useful for cameras (e.g. GoPro) that split output video into fixed-sized chapters.
+* `mp4join`: Join consecutive mp4 files in a lossless manner. Useful for cameras (e.g. GoPro) that split output video into fixed-sized chapters.
 Copy of [mp4join](https://github.com/kya8/mp4join).
 
 * `calibrator`: Simple wrapper for camera calibration utilities in OpenCV.

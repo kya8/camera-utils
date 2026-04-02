@@ -18,7 +18,7 @@ constexpr MainFn main_fns[] {
     {"camerainfo", main_camerainfo},
     {"calibrator", main_calibrator},
     {"insta360_normalize", main_insta360_normalize},
-    {"mp4_join", main_mp4_join}
+    {"mp4join", main_mp4join}
 };
 
 } // namespace
