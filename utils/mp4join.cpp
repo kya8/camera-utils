@@ -70,7 +70,7 @@ int main_mp4join(int argc, char** argv) noexcept
             return 0;
         }
         if (err_flag || inputs.size() < 2) {
-            std::print("Invalid arguments.\nPass '-h' for help.\n");
+            std::print(stderr, "Invalid arguments.\nPass '-h' for help.\n");
             return 2;
         }
     }

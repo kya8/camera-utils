@@ -25,6 +25,7 @@
 #include <algorithm>
 
 #include "fs.hpp"
+#include "string_utils.hpp"
 #include <time_utils.hpp>
 
 
@@ -147,19 +148,19 @@ Positional arguments:
                     Or, if -D is specified, a single image file to detect checkerboard size.
 
 Options:
-  --size ROWSxCOLS  Specify the number of inner corners per a chessboard row and column.
-                    If not specified, the program will attempt to determine the grid size
-                    from the first image, using a grid search.
-  -D                Detect and print the checkerboard size from the given INPUT image and exit.
-  -e EXT            Specify the image file extension to look for (e.g., jpg, png).
-                    If not specified, the program will try to guess one.
-  -i                Invert the images before processing (useful if chessboard has black borders).
-  -k3               Use k3 distortion coeff. Otherwise k3 is fixed at 0.
-  -s                Use the more robust findChessboardCornersSB() for corner detection.
-  -d                Draw and save detected corners on images.
-  -r FILE           Output a calibration report to FILE.
-  -V                Display version information.
-  -h                Display this help message.
+  -s, --size <ROWSxCOLS>  Specify the number of inner corners per a chessboard row and column.
+                          If not specified, the program will attempt to determine the grid size
+                          from the first image, using a grid search.
+  -D, --detect            Detect and print the checkerboard size from the given INPUT image and exit.
+  -e, --extension <EXT>   Specify the image file extension to look for (e.g., jpg, png).
+                          If not specified, the program will try to guess one.
+  -i, --invert            Invert the images before processing (useful if chessboard has black borders).
+  -k, --k3                Use k3 distortion coeff. Otherwise k3 is fixed at 0.
+  -S                      Use the more robust findChessboardCornersSB() for corner detection.
+  -d, --draw-corners      Draw and save detected corners on images.
+  -r, --report <FILE>     Output a calibration report to FILE.
+  -V, --version           Display version information.
+  -h, --help              Display this help message.
 )^^";
 
 auto format_mat(const cv::Mat& mat, cv::Formatter::FormatType fmt = cv::Formatter::FMT_DEFAULT)
@@ -191,24 +192,23 @@ try
 
             for (int i = 1; i < argc; ++i) {
                 const auto opt = std::string_view{argv[i]};
-                if (opt == "-i") {
+                if (match(opt, "-i", "--invert")) {
                     invert = true;
-                }
-                else if (opt == "-k3") {
+                } else if (match(opt, "-k", "--k3", "-k3")) {
                     use_k3 = true;
-                } else if (opt == "-s") {
+                } else if (match(opt, "-S")) {
                     corner_sb = true;
-                } else if (opt == "-d") {
+                } else if (match(opt, "-d", "--draw-corners")) {
                     draw_corners = true;
-                } else if (opt == "-D") {
+                } else if (match(opt, "-D", "--detect")) {
                     detect_size = true;
-                } else if (opt == "-e") {
+                } else if (match(opt, "-e", "--extension")) {
                     if (i + 1 == argc) return false;
                     img_ext = argv[++i];
-                } else if (opt == "-r") {
+                } else if (match(opt, "-r", "--report")) {
                     if (i + 1 == argc) return false;
                     report = argv[++i];
-                } else if (opt == "--size") {
+                } else if (match(opt, "-s", "--size")) {
                     if (i + 1 == argc) return false;
                     const auto s = std::string_view{argv[++i]};
                     const auto x_pos = s.find('x');
@@ -218,10 +218,10 @@ try
                         return false;
                     }
                     pattern_size.emplace(cols, rows);
-                } else if (opt == "-V") {
+                } else if (match(opt, "-V", "--version")) {
                     print_version = true;
                     break;
-                } else if (opt == "-h") {
+                } else if (match(opt, "-h", "--help")) {
                     print_help = true;
                     break;
                 } else { // positional arg

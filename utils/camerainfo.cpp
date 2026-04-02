@@ -24,15 +24,15 @@ R"^^(camerainfo: Extract and display camera information from video files.
 Usage: camerainfo <FILES...> [OPTIONS...]
 
 Options:
- --      Treat all following arguments as input file names, even if they start with '-'.
- -m      Only extract metadata, skip sensor data and other streaming data.
- -j      Output a raw JSON-like format for easier parsing.
- -dg     Dump gyroscope data (if available) in CSV format for each input.
- -dq     Dump camera quaternion data (if available) in CSV format.
- -l <N>  Limit the number of elements printed for vector types to N. Default is 50. Set to 0 for no limit.
-         Does not affect '-j' output, which always prints the full data.
- -V      Display version information and exit.
- -h      Display this help message and exit.
+ -m, --metadata-only  Only extract metadata, skip sensor data and other streaming data.
+ -j, --raw-output     Output a raw JSON-like format for easier parsing.
+ -g, --dump-gyro      Dump gyroscope data (if available) in CSV format for each input.
+ -q, --dump-quat      Dump camera quaternion data (if available) in CSV format.
+ -l <N>               Limit the number of elements printed for vector types to N. Default is 50. Set to 0 for no limit.
+                      Does not affect '-j' output, which always prints the full data.
+ --                   Treat all following arguments as input file names, even if they start with '-'.
+ -V, --version        Display version information and exit.
+ -h, --help           Display this help message and exit.
 )^^";
 
 } // namespace
@@ -55,13 +55,13 @@ int main_camerainfo(int argc, char** argv) noexcept
                 files.push_back(argv[i]);
             } else if (match(argv[i], "--")) { // After '--', all arguments are treated as input file names.
                 positional_only = true;
-            } else if (match(argv[i], "-m")) {
+            } else if (match(argv[i], "-m", "--metadata-only")) {
                 metadata_only = true;
-            } else if (match(argv[i], "-j")) {
+            } else if (match(argv[i], "-j", "--raw-output")) {
                 raw_output = true;
-            } else if (match(argv[i], "-dg")) {
+            } else if (match(argv[i], "-g", "--dump-gyro")) {
                 dump_gyro = true;
-            } else if (match(argv[i], "-dq")) {
+            } else if (match(argv[i], "-q", "--dump-quat")) {
                 dump_quat = true;
             } else if (match(argv[i], "-l")) {
                 if (++i < argc) {
@@ -85,7 +85,7 @@ int main_camerainfo(int argc, char** argv) noexcept
         }
 
         if (err_flag || (files.empty() && !print_version && !show_help)) {
-            std::print("Invaild argument.\nPass '-h' for help.\n");
+            std::print(stderr, "Invaild argument.\nPass '-h' for help.\n");
             return 2;
         }
     }

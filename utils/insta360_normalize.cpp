@@ -19,6 +19,7 @@
 #include "fs.hpp"
 #include <termcolor.hpp>
 #include <numbers>
+#include "string_utils.hpp"
 
 using namespace std::numbers;
 
@@ -141,23 +142,23 @@ enum Mode {
 const auto& help_message =
 R"^^(insta360_normalize: Undistort images from insta360 cameras.
 
-Usage: insta360_normalize <-v FILE> [-d0 DIRECTORY] [-d1 DIRECTORY] [-f FOV]
+Usage: insta360_normalize <-v FILE> [-0 DIRECTORY] [-1 DIRECTORY] [OPTIONS...]
 
 Options:
- -v  FILE   Primary .insv video file
- -d0 DIR    Image directory for lens 0 or joint video
- -d1 DIR    Secondary image directory for lens 1, in case the videos are split
- -f  FOV    Horizontal FOV angle (degrees, full view) of undistorted image. Default: 90.
- -w  WIDTH  Output image width. Default: original video width.
- -nc        Disable cropping. (For testing only)
- -T  NUM    Number of threads to use. Default is 0 (auto).
- --eqr      Equirectangular projection.
- --cube     Cubemap projection.
- --tf       Specify transform from lens0 to lens1. x, y, z, qx, qy, qz, qw.
-            If not specified, built-in transform is used.
- -F FORMAT  Output image format, e.g. jpg/png. Default: jpg.
- -V         Display version information.
- -h         Display this help message.
+ -v, --video <FILE>     Primary .insv video file
+ -0, --dir0 <DIR>       Image directory for lens 0 or joint video
+ -1, --dir1 <DIR>       Secondary image directory for lens 1, in case the videos are split
+ -f, --fov <FOV>        Horizontal FOV angle (degrees, full view) of undistorted image. Default: 90.
+ -w, --width <NUM>      Output image width. Default: original video width.
+     --no-crop          Disable cropping. (For testing only)
+ -T, --threads <NUM>    Number of threads to use. Default is 0 (auto).
+     --eqr              Equirectangular projection.
+     --cube             Cubemap projection.
+     --tf               Specify transform from lens0 to lens1. x, y, z, qx, qy, qz, qw.
+                        If not specified, built-in transform is used.
+ -F, --format <FORMAT>  Output image format, e.g. jpg/png. Default: jpg.
+ -V, --version          Display version information.
+ -h, --help             Display this help message.
 )^^";
 
 struct Cfg {
@@ -188,52 +189,52 @@ struct Cfg {
         };
 
         while (i < argc && !err_flag) {
-            if (!std::strcmp(argv[i], "-v")) {
+            if (match(argv[i], "-v", "--video")) {
                 if (check_arg()) {
                     video_file = argv[++i];
                 }
             }
-            else if (!std::strcmp(argv[i], "-d0")) {
+            else if (match(argv[i], "-l", "-0", "--dir0", "-d0")) {
                 if (check_arg()) {
                     dir[0] = argv[++i];
                 }
             }
-            else if (!std::strcmp(argv[i], "-d1")) {
+            else if (match(argv[i], "-r", "-1", "--dir1", "-d1")) {
                 if (check_arg()) {
                     dir[1] = argv[++i];
                 }
             }
-            else if (!std::strcmp(argv[i], "-f")) {
+            else if (match(argv[i], "-f", "--fov")) {
                 if (check_arg()) {
                     char* str_end;
                     fov_x = std::strtod(argv[++i], &str_end);
                     if (str_end == argv[i]) err_flag = 1;
                 }
             }
-            else if (!std::strcmp(argv[i], "-w")) {
+            else if (match(argv[i], "-w", "--width")) {
                 if (check_arg()) {
                     char* str_end;
                     output_width = std::strtol(argv[++i], &str_end, 0);
                     if (str_end == argv[i]) err_flag = 1;
                 }
             }
-            else if (!std::strcmp(argv[i], "-nc")) {
+            else if (match(argv[i], "--no-crop")) {
                 with_crop = false;
             }
-            else if (!std::strcmp(argv[i], "-T")) {
+            else if (match(argv[i], "-T", "--threads")) {
                 if (check_arg()) {
                     char* str_end;
                     nb_threads = std::strtoul(argv[++i], &str_end, 0);
                     if (str_end == argv[i]) err_flag = 1;
                 }
             }
-            else if (!std::strcmp(argv[i], "--eqr")) {
+            else if (match(argv[i], "--eqr")) {
                 mode = Equirectangular;
             }
-            else if (!std::strcmp(argv[i], "--cube")) {
+            else if (match(argv[i], "--cube")) {
                 mode = Cubemap;
             }
-            else if (!std::strcmp(argv[i], "--tf")) {
+            else if (match(argv[i], "--tf")) {
                 if (check_arg()) {
                     const auto v = parse_csv(argv[++i]);
                     if (v.size() != 7) {
@@ -244,15 +245,15 @@ struct Cfg {
                     }
                 }
             }
-            else if (!std::strcmp(argv[i], "-V")) {
+            else if (match(argv[i], "-V", "--version")) {
                 print_version = true;
                 break;
             }
-            else if (!std::strcmp(argv[i], "-h")) {
+            else if (match(argv[i], "-h", "--help")) {
                 print_help = true;
                 break;
             }
-            else if (!std::strcmp(argv[i], "-F")) {
+            else if (match(argv[i], "-F", "--format")) {
                 if (check_arg()) {
                     output_image_format = argv[++i];
                 }
