@@ -38,7 +38,7 @@ jobs:
             vcpkg_triplet: "x64-windows-static-md"
           - os: ubuntu-latest
             vcpkg_triplet: "x64-linux"
-            container-image: "fedora:latest"
+            container-image: "kya8/fedora-dev:latest"
         #c_compiler: [gcc, clang, cl]
 
     steps:
@@ -69,10 +69,9 @@ jobs:
       with:
         arch: x64
 
-    - name: Setup build tools on fedora container
-      if: startsWith(matrix.container-image, 'fedora')
+    - name: Setup build environment for container
+      if: ${{ matrix.container-image != '' }}
       run: |
-        dnf install -y cmake ninja tar zstd g++ libstdc++-static libstdc++-devel libatomic-static pkgconf nasm bison automake autoconf autoconf-archive make git unzip zip
         echo "/vcpkg" >> "$GITHUB_PATH"
 
     - name: Install and export deps if cache not hit
