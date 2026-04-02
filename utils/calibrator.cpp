@@ -49,10 +49,13 @@ auto& get_pool() noexcept
     return pool;
 }
 
-std::optional<cv::Size> detect_checkerboard_size(const cv::Mat& img) noexcept
+std::optional<cv::Size> detect_checkerboard_size(const cv::Mat& img, int size_max) noexcept
 {
-    static constexpr int size_min = 4;
-    static constexpr int size_max = 20;
+    static constexpr int size_min = 3;
+    if (size_max < size_min) {
+        return std::nullopt;
+    }
+    //static constexpr int size_max = 20;
     std::atomic<bool> found{false};
     std::atomic<bool> multiple_found{false};
     cv::Size result{};
@@ -132,6 +135,7 @@ detect_corners(std::span<const fs::path> imgs_path, cv::Size pattern_size, bool 
 }
 
 template<typename T>
+requires requires (T x) { std::from_chars({}, {}, x); }
 bool parse(std::string_view sv, T& val) noexcept
 {
     const auto res = std::from_chars(sv.data(), sv.data() + sv.size(), val);
@@ -159,6 +163,8 @@ Options:
   -S                      Use the more robust findChessboardCornersSB() for corner detection.
   -d, --draw-corners      Draw and save detected corners on images.
   -r, --report <FILE>     Output a calibration report to FILE.
+  -m, --max-size <NUM>    Max size for grid search when auto detecting the pattern size. Default: 20.
+                          Only sizes less than or equal to NUMxNUM will be searched.
   -V, --version           Display version information.
   -h, --help              Display this help message.
 )^^";
@@ -183,6 +189,7 @@ try
     bool corner_sb = false;
     bool draw_corners = false;
     bool detect_size = false;
+    int  max_detect_size = 20;
     bool print_version = false;
     bool print_help = false;
     {
@@ -218,6 +225,12 @@ try
                         return false;
                     }
                     pattern_size.emplace(cols, rows);
+                } else if (match(opt, "-m", "--max-size")) {
+                    if (i + 1 == argc)
+                        return false;
+                    if (!parse(argv[++i], max_detect_size)) {
+                        return false;
+                    }
                 } else if (match(opt, "-V", "--version")) {
                     print_version = true;
                     break;
@@ -253,7 +266,7 @@ try
         if (detect_size) {
             const auto input_file = dir.string();
             const auto input_image = cv::imread(input_file);
-            if (!input_image.empty() && (pattern_size = detect_checkerboard_size(input_image))) {
+            if (!input_image.empty() && (pattern_size = detect_checkerboard_size(input_image, max_detect_size))) {
                 std::print("Auto-detected checkerboard size: {}x{}\n", pattern_size->height, pattern_size->width);
                 return 0;
             } else {
@@ -298,7 +311,7 @@ try
         image_size = {sample_img.cols, sample_img.rows};
 
         if (!pattern_size) {
-            pattern_size = detect_checkerboard_size(sample_img);
+            pattern_size = detect_checkerboard_size(sample_img, max_detect_size);
             if (!pattern_size) {
                 std::println(stderr, "Could not auto-detect checkerboard size from sample image");
                 return 1;
