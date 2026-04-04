@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <slate/loupe/loupe_fwd.hpp>
+#include "slate/export.h"
 
 namespace slate::loupe::insta360 {
 
@@ -44,7 +45,7 @@ Params::Lens::project_point(double x, double y, double z) const noexcept
     };
 }
 
-bool get_params(const CameraInfo& info, Params& out, bool with_crop = true) noexcept;
+SLATE_EXPORT bool get_params(const CameraInfo& info, Params& out, bool with_crop = true) noexcept;
 
 } // namespace slate::loupe::insta360
 

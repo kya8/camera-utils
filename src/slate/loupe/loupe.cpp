@@ -42,7 +42,7 @@ detect(const char* video_file, bool metadata_only) noexcept
 }
 
 std::string_view
-get_vendor_name(CameraVendor type) noexcept
+to_string(CameraVendor type) noexcept
 {
     switch(type)
     {
@@ -58,7 +58,7 @@ std::string
 CameraInfo::describe() const noexcept
 {
     std::ostringstream ret;
-    ret << "Camera Vendor: " << get_vendor_name(vendor) << "; ";
+    ret << "Camera Vendor: " << to_string(vendor) << "; ";
 
     const auto metadata = extras.find(GroupId::NormalizedMetadata);
     if(metadata != extras.cend()) {

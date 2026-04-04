@@ -16,6 +16,7 @@
 #include <compare>
 #include <ostream>
 #include <cassert>
+#include "slate/export.h"
 
 namespace slate::loupe {
 
@@ -62,11 +63,11 @@ enum class KeyId {
 /**
  * Get a informative string of the given GroupId.
  */
-std::string_view to_string(GroupId id) noexcept;
+SLATE_EXPORT std::string_view to_string(GroupId id) noexcept;
 /**
  * Get a informative string of the given KeyId.
  */
-std::string_view to_string(KeyId id) noexcept;
+SLATE_EXPORT std::string_view to_string(KeyId id) noexcept;
 
 namespace detail {
 
@@ -159,7 +160,7 @@ struct Value: Variant {
 
 // Allows comparing variant keys with string_view directly.
 // They can be found by ADL, since Key's template parameter KeyId is in our namespace.
-constexpr std::strong_ordering operator<=>(const Key& key, std::string_view sv) noexcept {
+inline constexpr std::strong_ordering operator<=>(const Key& key, std::string_view sv) noexcept {
     return std::visit([&sv]<typename T>(const T& val) {
         if constexpr (std::is_convertible_v<T, std::string_view>) {
             return std::string_view(val) <=> sv; // Convert val to string_view to avoid recursion into this function.
@@ -303,16 +304,16 @@ public:
  * @param[in] max_vec_len The maximum number of scalars to include in the string representation for vectors.
  *                        0 means no limit.
  */
-std::string to_string(const Value& var, std::size_t max_vec_len = 50) noexcept;
+SLATE_EXPORT std::string to_string(const Value& var, std::size_t max_vec_len = 50) noexcept;
 /**
  * Converts a Key to a string representation.
  * The returned string_view references a static string if the key is a KeyId.
  * If the key is a string, the returned string_view references the string stored in the key.
  */
-std::string_view to_string(const Key& key) noexcept;
+SLATE_EXPORT std::string_view to_string(const Key& key) noexcept;
 
-std::ostream& operator<<(std::ostream& os, const VarMap& map);
-std::ostream& operator<<(std::ostream& os, const Value& val);
+SLATE_EXPORT std::ostream& operator<<(std::ostream& os, const VarMap& map);
+SLATE_EXPORT std::ostream& operator<<(std::ostream& os, const Value& val);
 
 // TODO: Output Value/VarMap to std::FILE*
 

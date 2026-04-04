@@ -121,7 +121,7 @@ int slate::main_loupe(int argc, char** argv) noexcept
 
         if (info) {
             static constexpr auto width = 30;
-            std::print("{:<{}}: {}\n", "Camera Vendor", width, get_vendor_name(info->vendor));
+            std::print("{:<{}}: {}\n", "Camera Vendor", width, to_string(info->vendor));
 
             for (const auto& [group, map] : info->extras) {
                 if (stdout_is_colorterm)

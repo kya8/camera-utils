@@ -5,6 +5,7 @@
 #include <string>
 #include <optional>
 #include "varmap.hpp"
+#include "slate/export.h"
 
 namespace slate::loupe {
 
@@ -14,17 +15,16 @@ enum class CameraVendor {
     Unknown
 };
 
-std::string_view get_vendor_name(CameraVendor type) noexcept;
-
+SLATE_EXPORT std::string_view to_string(CameraVendor type) noexcept;
 
 struct CameraInfo {
     CameraVendor vendor = CameraVendor::Unknown;
     GroupedVarMap extras;
 
-    std::string describe() const noexcept;
+    SLATE_EXPORT std::string describe() const noexcept;
 };
 
-std::optional<CameraInfo> detect(const char* video_file, bool metadata_only = false) noexcept;
+SLATE_EXPORT std::optional<CameraInfo> detect(const char* video_file, bool metadata_only = false) noexcept;
 
 } // namespace slate::loupe
 

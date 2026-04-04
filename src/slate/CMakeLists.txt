@@ -38,6 +38,12 @@ PRIVATE gpmf-parser protobuf::libprotobuf slate::common
 PUBLIC Eigen3::Eigen # Insta360 transforms
 )
 
+# export macros
+target_compile_definitions(slate PRIVATE SLATE_SOURCE)
+if(BUILD_SHARED_LIBS)
+target_compile_definitions(slate PUBLIC SLATE_SHARED_LIB)
+endif()
+
 # Workaround a GCC/libstdc++ bug, triggered by protobuf.
 # Ref:
 # https://github.com/protocolbuffers/protobuf/issues/6479
@@ -50,3 +56,6 @@ endif()
 if(SLATE_ENABLE_ANY)
 target_compile_definitions(slate PUBLIC SLATE_ENABLE_ANY)
 endif()
+
+install(TARGETS slate)
+install(DIRECTORY ${SLATE_PUBLIC_INCLUDE_DIR}/slate TYPE INCLUDE)

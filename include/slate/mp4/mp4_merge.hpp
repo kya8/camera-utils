@@ -1,6 +1,8 @@
 #ifndef MP4_MERGE_HPP_C328A04A_1474_4AEB_A13A_C2AFFF31804A
 #define MP4_MERGE_HPP_C328A04A_1474_4AEB_A13A_C2AFFF31804A
 
+#include "slate/export.h"
+
 namespace slate::mp4 {
 
 enum class MergeResult {
@@ -38,7 +40,7 @@ struct MergeProgCb {
  *
  * @return MergeResult indicating the result of the operation.
  */
-MergeResult merge_mp4(int nb_input, const char* const* input_files, const char* output_file, MergeProgCb prog_cb = {}) noexcept;
+SLATE_EXPORT MergeResult merge_mp4(int nb_input, const char* const* input_files, const char* output_file, MergeProgCb prog_cb = {}) noexcept;
 
 } // namespace slate::mp4
 
