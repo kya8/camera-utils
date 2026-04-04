@@ -16,6 +16,7 @@
 #include <compare>
 #include <ostream>
 #include <cassert>
+#include <memory> // addressof
 #include "slate/export.h"
 
 namespace slate::loupe {
@@ -207,30 +208,54 @@ concept KeyType = std::is_convertible_v<K, Key> || std::is_convertible_v<K, std:
 struct GroupedVarMap : std::map<GroupId, VarMap> {
 
 private:
-    template<typename T, typename Self, typename K>
-    auto get_impl(this Self& self, GroupId group, const K& key) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*>{
+    template<typename T, typename Self, typename K, typename ...Ks>
+    auto get_impl(this Self& self, GroupId group, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*>{
         const auto it = self.find(group);
         if (it == self.end())
             return nullptr;
-        const auto it2 = it->second.find(key);
-        if (it2 == it->second.end())
+        const auto p_val = get(it->second, key, keys...);
+        if (!p_val)
             return nullptr;
-        return std::get_if<T>(&it2->second);
+        return std::get_if<T>(p_val);
     }
 
-    template<typename T, typename Self, typename K>
-    auto& get_ex_impl(this Self& self, GroupId group, const K& key) {
+    template<typename T, typename Self, typename K, typename ...Ks>
+    auto& get_ex_impl(this Self& self, GroupId group, const K& key, const Ks& ...keys) {
         // Unfortunately, std::map::at doesn't support heterogeneous lookup before C++26, so we have to check manually with find.
         const auto it = self.find(group);
         if (it == self.end())
             throw std::out_of_range("GroupId not found");
-        const auto it2 = it->second.find(key);
-        if (it2 == it->second.end())
+        const auto p_val = get(it->second, key, keys...);
+        if (!p_val)
             throw std::out_of_range("Key not found");
-        const auto p = std::get_if<T>(&it2->second);
+        const auto p = std::get_if<T>(p_val);
         if (!p)
             throw std::out_of_range("Value type mismatch");
         return *p;
+    }
+
+    // Recursively look up a value in VarMap.
+    // If more than 1 key is provided, search further down nested VarMaps.
+    // Return nullptr if not found, or one of the found Value (except the last one) isn't a VarMap.
+    template<KeyType K, KeyType ...Ks>
+    static const Value* get(const VarMap& map, const K& key, const Ks& ...keys) noexcept {
+        const auto it = [&] {
+            if constexpr (requires{ map.find(key); }) {
+                return map.find(key);
+            } else { // Fallback to lookup with exact key_type
+                return map.find(Key(key));
+            }
+        }();
+        if (it == map.end())
+            return nullptr;
+        if constexpr (sizeof...(Ks) == 0) {
+            return std::addressof(it->second);
+        } else {
+            const auto p = std::get_if<VarMap>(&it->second);
+            if (!p)
+                return nullptr;
+            return get(*p, keys...);
+        }
     }
 
 public:
@@ -241,15 +266,11 @@ public:
      * @param key   Key to look up.
      * @return A pointer to the requested data if found and of the correct type, or nullptr otherwise.
      */
-    template<typename T, KeyType K>
-    const T* get(GroupId group, const K& key) const noexcept {
+    template<typename T, KeyType K, KeyType ...Ks>
+    const T* get(GroupId group, const K& key, const Ks& ...keys) const noexcept {
         // if constexpr (std::is_convertible_v<K, std::string_view>) {
         //     return get_impl<T>(group, (const std::string_view&)(key)); // cast to reference, to avoid copying
-        if constexpr (requires(VarMap m){ m.find(key); }) {
-            return get_impl<T>(group, key);
-        } else { // Fallback to lookup with exact key_type
-            return get_impl<T>(group, Key(key));
-        }
+        return get_impl<T>(group, key, keys...);
     }
 
     /**
@@ -260,13 +281,9 @@ public:
      * @return Reference to the requested value.
      * @exception std::out_of_range if the group or key is not found, or the value type does not match.
      */
-    template<typename T, KeyType K>
-    const auto& get_ex(GroupId group, const K& key) const {
-        if constexpr (requires(VarMap m){ m.find(key); }) {
-            return get_ex_impl<T>(group, key);
-        } else { // Fallback to lookup with exact key_type
-            return get_ex_impl<T>(group, Key(key));
-        }
+    template<typename T, KeyType K, KeyType ...Ks>
+    const auto& get_ex(GroupId group, const K& key, const Ks& ...keys) const {
+        return get_ex_impl<T>(group, key, keys...);
     }
 
     /**

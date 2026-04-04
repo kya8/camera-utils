@@ -23,10 +23,10 @@ bool get_params(const CameraInfo& info, Params& out, bool with_crop) noexcept
             return false;
         out.nb_lens = offset_v3.size() >= 39? 2 : 1;
 
-        const auto src_width  = map.get_ex<UInt>(GroupId::Metadata, "crop_info.src_width");
-        const auto src_height = map.get_ex<UInt>(GroupId::Metadata, "crop_info.src_height");
-        const auto dst_width  = with_crop? map.get_ex<UInt>(GroupId::Metadata, "crop_info.dst_width") : src_width;
-        const auto dst_height = with_crop? map.get_ex<UInt>(GroupId::Metadata, "crop_info.dst_height") : src_height;
+        const auto src_width  = map.get_ex<UInt>(GroupId::Metadata, "crop_info", "src_width");
+        const auto src_height = map.get_ex<UInt>(GroupId::Metadata, "crop_info", "src_height");
+        const auto dst_width  = with_crop? map.get_ex<UInt>(GroupId::Metadata, "crop_info", "dst_width") : src_width;
+        const auto dst_height = with_crop? map.get_ex<UInt>(GroupId::Metadata, "crop_info", "dst_height") : src_height;
 
         // check if the video file is joined side-by-side
         if (double(out.width) / out.height / dst_width * dst_height > 1.9) {

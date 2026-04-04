@@ -279,9 +279,9 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
         else if (id == RecordType::Gyro && format == RecordFormat::Binary) {
             // ranges are only relevant for raw format, where int16_min/max corresponds to -range/+range.
             constexpr auto deg2rad = 3.14159265358979323846 / 180.0;
-            const auto p_gyro_range = info.extras.get<types::UInt>(GroupId::Metadata, "gyro_range_info.gyro_range");
+            const auto p_gyro_range = info.extras.get<types::UInt>(GroupId::Metadata, "gyro_range_info", "gyro_range");
             const auto gyro_scale = (p_gyro_range? *p_gyro_range : 2000) / 32768.0 * deg2rad; // +-2000 degree per second
-            const auto p_acc_range = info.extras.get<types::UInt>(GroupId::Metadata, "gyro_range_info.acc_range");
+            const auto p_acc_range = info.extras.get<types::UInt>(GroupId::Metadata, "gyro_range_info", "acc_range");
             const auto acc_scale = (p_acc_range? *p_acc_range : 16) / 32768.0;                // +-16g
 
             const auto gyro_ts = [&info] {  // some sort of time offset...
