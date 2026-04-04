@@ -8,9 +8,9 @@
 
 # Command-line tools
 
-[![Build utils](https://github.com/kya8/slate/actions/workflows/build-utils.yml/badge.svg?event=push)](https://github.com/kya8/slate/actions/workflows/build-utils.yml)
+[![Build](https://github.com/kya8/slate/actions/workflows/build.yml/badge.svg?event=push)](https://github.com/kya8/slate/actions/workflows/build.yml)
 
-* `camerainfo`: Dump various information and metadata extracted from video files.
+* `loupe`: Inspect and dump various information and metadata extracted from video files.
 
 * `insta360_normalize`: Undistort panoramic images from Insta360 cameras.
 
