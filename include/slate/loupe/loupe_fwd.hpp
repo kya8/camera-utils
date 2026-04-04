@@ -1,0 +1,10 @@
+#ifndef LOUPE_FWD_HPP_E0FC5170_6EEE_4C80_B503_3E1F605C8B5A
+#define LOUPE_FWD_HPP_E0FC5170_6EEE_4C80_B503_3E1F605C8B5A
+
+namespace slate::loupe {
+
+struct CameraInfo;
+
+} // namespace slate::loupe 
+
+#endif /* LOUPE_FWD_HPP_E0FC5170_6EEE_4C80_B503_3E1F605C8B5A */

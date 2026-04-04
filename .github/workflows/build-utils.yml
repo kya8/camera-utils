@@ -108,7 +108,7 @@ jobs:
 
     - uses: actions/upload-artifact@v7
       with:
-        name: camera-utils-${{ github.sha }}-${{ runner.os }}_${{ runner.arch }}
+        name: slate_utils-${{ github.sha }}-${{ runner.os }}_${{ runner.arch }}
         path: |
           ${{ steps.strings.outputs.build_dir }}/*.tar.*
         archive: false

@@ -1,5 +1,5 @@
 # Brief
-Utilities and libraries for working with video files produced by some cameras.
+🎬 slate: Utilities and libraries for working with video files produced by some cameras.
 
 # Supported vendors
 
@@ -8,7 +8,7 @@ Utilities and libraries for working with video files produced by some cameras.
 
 # Command-line tools
 
-[![Build utils](https://github.com/kya8/camera-utils/actions/workflows/build-utils.yml/badge.svg?event=push)](https://github.com/kya8/camera-utils/actions/workflows/build-utils.yml)
+[![Build utils](https://github.com/kya8/slate/actions/workflows/build-utils.yml/badge.svg?event=push)](https://github.com/kya8/slate/actions/workflows/build-utils.yml)
 
 * `camerainfo`: Dump various information and metadata extracted from video files.
 
