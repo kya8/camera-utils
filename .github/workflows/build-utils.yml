@@ -1,4 +1,4 @@
-name: Build utils
+name: Build slate
 
 on:
   push:
@@ -108,7 +108,7 @@ jobs:
 
     - uses: actions/upload-artifact@v7
       with:
-        name: slate_utils-${{ github.sha }}-${{ runner.os }}_${{ runner.arch }}
+        name: slate-${{ github.sha }}-${{ runner.os }}_${{ runner.arch }}
         path: |
           ${{ steps.strings.outputs.build_dir }}/*.tar.*
         archive: false
