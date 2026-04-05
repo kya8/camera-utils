@@ -3,9 +3,10 @@
 
 void slate::version::print_info() noexcept
 {
-    std::printf("slate %s, %s. Build type %s, %s %s, compiled with %s %s\n",
-                GIT_DESC, COMMIT_DATE,
-                BUILD_TYPE,
-                TARGET_OS, TARGET_ARCH,
-                COMPILER_NAME, COMPILER_VERSION);
+    const Version& v = get();
+    std::printf("slate %s, %s.\nBuild type %s, %s %s, compiled with %s %s\n",
+                v.git_desc, v.commit_date,
+                v.build_type,
+                v.target_os, v.target_arch,
+                v.compiler_name, v.compiler_version);
 }

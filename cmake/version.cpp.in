@@ -7,20 +7,30 @@
 
 namespace slate::version {
 
-const char* const GIT_DESC    = "@GIT_DESC@";
-const char* const GIT_BRANCH  = "@GIT_BRANCH@";
-const char* const GIT_TAG     = "@GIT_TAG@";
-const char* const GIT_VERSION_MAJOR  = "@GIT_VERSION_MAJOR@";
-const char* const GIT_VERSION_MINOR  = "@GIT_VERSION_MINOR@";
-const char* const GIT_VERSION_PATCH  = "@GIT_VERSION_PATCH@";
-const char* const COMMIT_DATE = "@COMMIT_DATE@";
-const char* const COMMIT_HASH = "@COMMIT_HASH@";
-const char* const TARGET_OS   = "@CMAKE_SYSTEM_NAME@";
-const char* const TARGET_ARCH = "@CMAKE_SYSTEM_PROCESSOR@";
-const char* const BUILD_TYPE  = SLATE_BUILD_TYPE;
-const char* const COMPILER_NAME    = "@COMPILER_NAME@";
-const char* const COMPILER_VERSION = "@COMPILER_VERSION@";
-const char* const HOST_OS          = "@CMAKE_HOST_SYSTEM_NAME@";
-const char* const HOST_HOSTNAME    = "@HOST_HOSTNAME@";
+namespace {
+
+constexpr Version g_version {
+    .git_desc    = "@GIT_DESC@",
+    .git_branch  = "@GIT_BRANCH@",
+    .git_tag     = "@GIT_TAG@",
+    .git_version_major  = @GIT_VERSION_MAJOR@,
+    .git_version_minor  = @GIT_VERSION_MINOR@,
+    .git_version_patch  = @GIT_VERSION_PATCH@,
+    .commit_date = "@COMMIT_DATE@",
+    .commit_hash = "@COMMIT_HASH@",
+    .target_os   = "@CMAKE_SYSTEM_NAME@",
+    .target_arch = "@CMAKE_SYSTEM_PROCESSOR@",
+    .build_type  = SLATE_BUILD_TYPE,
+    .compiler_name    = "@COMPILER_NAME@",
+    .compiler_version = "@COMPILER_VERSION@",
+    .host_os          = "@CMAKE_HOST_SYSTEM_NAME@",
+    .host_hostname    = "@HOST_HOSTNAME@"
+};
+
+} // namespace
+
+const Version& get() noexcept {
+    return g_version;
+}
 
 } // namespace slate::version
