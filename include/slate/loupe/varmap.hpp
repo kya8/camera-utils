@@ -105,8 +105,78 @@ struct Value;
 
 // The key type for the map, can be either a well-known KeyId or an arbitrary string.
 using Key = std::variant<KeyId, std::string>;
-using VarMap = std::map<Key, Value, std::less<void>>; // std::less<void> for transparent comparison.
+using Map = std::map<Key, Value, std::less<void>>; // std::less<void> for transparent comparison.
 using Array = std::vector<Value>;
+
+// Requirement for looking up VarMap.
+template<typename K>
+concept KeyType = std::is_convertible_v<K, Key> || std::is_convertible_v<K, std::string_view>;
+
+struct VarMap : Map {
+    const Map& as_map() const & noexcept { return *this; }
+    Map& as_map() & noexcept { return *this; }
+    const Map&& as_map() const && noexcept { return std::move(*this); }
+    Map&& as_map() && noexcept { return std::move(*this); }
+
+    template<typename Self, KeyType K, KeyType ...Ks>
+    auto get_value(this Self& map, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const Value*, Value*> {
+        const auto it = [&] {
+            if constexpr (requires{ map.find(key); }) {
+                return map.find(key);
+            } else { // Fallback to lookup with exact key_type
+                return map.find(Key(key));
+            }
+        }();
+        if (it == map.end())
+            return nullptr;
+        if constexpr (sizeof...(Ks) == 0) {
+            return std::addressof(it->second);
+        } else {
+            const auto p = std::get_if<VarMap>(&it->second);
+            if (!p)
+                return nullptr;
+            return p->get_value(keys...);
+        }
+    }
+
+    template<typename Self, KeyType K, KeyType ...Ks>
+    auto&& get_value_ex(this Self&& map, const K& key, const Ks& ...keys) {
+        const auto it = [&] {
+            if constexpr (requires{ map.find(key); }) {
+                return map.find(key);
+            } else { // Fallback to lookup with exact key_type
+                return map.find(Key(key));
+            }
+        }();
+        if (it == map.end())
+            throw std::out_of_range("Key not found");
+        if constexpr (sizeof...(Ks) == 0) {
+            return std::forward_like<Self>(it->second);
+        } else {
+            const auto p = std::get_if<VarMap>(&it->second);
+            if (!p)
+                throw std::out_of_range("Key does not refer to a map");
+            return std::forward_like<Self>(*p).get_value_ex(keys...);
+        }
+    }
+
+    template<typename T, typename Self, KeyType K, KeyType ...Ks>
+    auto get(this Self& self, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*> {
+        const auto p_val = self.get_value(key, keys...);
+        if (!p_val)
+            return nullptr;
+        return std::get_if<T>(p_val);
+    }
+
+    template<typename T, typename Self, KeyType K, KeyType ...Ks>
+    auto&& get_ex(this Self&& self, const K& key, const Ks& ...keys) {
+        auto&& val = std::forward<Self>(self).get_value_ex(key, keys...);
+        const auto p = std::get_if<T>(&val);
+        if (!p)
+            throw std::out_of_range("Value type mismatch");
+        return std::forward_like<Self>(*p);
+    }
+};
 
 // The actual variant type.
 // The Array and VarMap types are recursive, to support arbitarily nested heterogeneous data structures.
@@ -200,103 +270,52 @@ constexpr auto operator<=>(const std::variant<Ts...>& var, const T& rhs)
     , var);
 }
 
-// Requirement for looking up VarMap.
-template<typename K>
-concept KeyType = std::is_convertible_v<K, Key> || std::is_convertible_v<K, std::string_view>;
-
 // An outer map that gives a group id for each VarMap, to allow better organization of the metadata.
 struct GroupedVarMap : std::map<GroupId, VarMap> {
-
-private:
-    template<typename T, typename Self, typename K, typename ...Ks>
-    auto get_impl(this Self& self, GroupId group, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*>{
-        const auto it = self.find(group);
-        if (it == self.end())
-            return nullptr;
-        const auto p_val = get(it->second, key, keys...);
-        if (!p_val)
-            return nullptr;
-        return std::get_if<T>(p_val);
-    }
-
-    template<typename T, typename Self, typename K, typename ...Ks>
-    auto& get_ex_impl(this Self& self, GroupId group, const K& key, const Ks& ...keys) {
-        // Unfortunately, std::map::at doesn't support heterogeneous lookup before C++26, so we have to check manually with find.
-        const auto it = self.find(group);
-        if (it == self.end())
-            throw std::out_of_range("GroupId not found");
-        const auto p_val = get(it->second, key, keys...);
-        if (!p_val)
-            throw std::out_of_range("Key not found");
-        const auto p = std::get_if<T>(p_val);
-        if (!p)
-            throw std::out_of_range("Value type mismatch");
-        return *p;
-    }
-
-    // Recursively look up a value in VarMap.
-    // If more than 1 key is provided, search further down nested VarMaps.
-    // Return nullptr if not found, or one of the found Value (except the last one) isn't a VarMap.
-    template<KeyType K, KeyType ...Ks>
-    static const Value* get(const VarMap& map, const K& key, const Ks& ...keys) noexcept {
-        const auto it = [&] {
-            if constexpr (requires{ map.find(key); }) {
-                return map.find(key);
-            } else { // Fallback to lookup with exact key_type
-                return map.find(Key(key));
-            }
-        }();
-        if (it == map.end())
-            return nullptr;
-        if constexpr (sizeof...(Ks) == 0) {
-            return std::addressof(it->second);
-        } else {
-            const auto p = std::get_if<VarMap>(&it->second);
-            if (!p)
-                return nullptr;
-            return get(*p, keys...);
-        }
-    }
-
 public:
     /**
      * Get a pointer to the value requested by group id and Key.
-     * @tparam T  The expected type of the value. Must be one of the alternative types in `Value`. 
+     * @tparam T  The expected type of the value. Must be one of the alternative types in `Value`.
      * @param group Group id.
-     * @param key   Key to look up.
+     * @param key, keys Key to look up. If more than 1 key is provided, recurses into nested maps.
      * @return A pointer to the requested data if found and of the correct type, or nullptr otherwise.
      */
-    template<typename T, KeyType K, KeyType ...Ks>
-    const T* get(GroupId group, const K& key, const Ks& ...keys) const noexcept {
-        // if constexpr (std::is_convertible_v<K, std::string_view>) {
-        //     return get_impl<T>(group, (const std::string_view&)(key)); // cast to reference, to avoid copying
-        return get_impl<T>(group, key, keys...);
+    template<typename T, typename Self, typename K, typename ...Ks>
+    auto get(this Self& self, GroupId group, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*>{
+        const auto it = self.find(group);
+        if (it == self.end())
+            return nullptr;
+        return it->second.template get<T>(key, keys...);
     }
 
     /**
      * Get a reference to the value requested by group id and Key.
-     * @tparam T  The expected type of the value. Must be one of the alternative types in `Value`. 
+     * @tparam T  The expected type of the value. Must be one of the alternative types in `Value`.
      * @param group Group id.
-     * @param key   Key to look up.
+     * @param key, keys Key to look up. If more than 1 key is provided, recurses into nested maps.
      * @return Reference to the requested value.
      * @exception std::out_of_range if the group or key is not found, or the value type does not match.
      */
-    template<typename T, KeyType K, KeyType ...Ks>
-    const auto& get_ex(GroupId group, const K& key, const Ks& ...keys) const {
-        return get_ex_impl<T>(group, key, keys...);
+    template<typename T, typename Self, typename K, typename ...Ks>
+    auto&& get_ex(this Self&& self, GroupId group, const K& key, const Ks& ...keys) {
+        // Unfortunately, std::map::at doesn't support heterogeneous lookup before C++26, so we have to check manually with find.
+        const auto it = self.find(group);
+        if (it == self.end())
+            throw std::out_of_range("GroupId not found");
+        return std::forward_like<Self>(it->second).template get_ex<T>(key, keys...);
     }
 
     /**
      * Get a reference to the value requested by group id and Key, or return a default value if not found or type mismatch.
      * @tparam T  The expected type of the value. Must be one of the alternative types in `Value`.
      * @param group Group id.
-     * @param key   Key to look up.
+     * @param key, keys Key to look up. If more than 1 key is provided, recurses into nested maps.
      * @param default_val The default value to return if the requested value is not found or has a different type.
      * @return Reference to the requested value or the default value.
      */
-    template<typename T, KeyType K>
-    const T& get_or(GroupId group, const K& key, const T& default_val) const noexcept {
-        const auto p = get<T>(group, key);
+    template<typename T, KeyType K, KeyType ...Ks>
+    const T& get_or(const T& default_val, GroupId group, const K& key, const Ks& ...keys) const noexcept {
+        const auto p = get<T>(group, key, keys...);
         if (!p) return default_val;
         return *p;
     }
@@ -305,14 +324,31 @@ public:
      * Overload for temporary default value.
      * Returns by value, so be careful with copying large data from the map.
      */
-    template<typename T, KeyType K>
-    requires (!std::is_reference_v<T>) // T&& must be rvalue ref
-    auto get_or(GroupId group, const K& key, T&& default_val = T{}) const noexcept {
-        const auto p = get<T>(group, key);
+    template<typename T, KeyType K, KeyType ...Ks>
+    requires (!std::is_reference_v<T>) // T&& must be rvalue ref, in case T is deduced
+    auto get_or(T&& default_val, GroupId group, const K& key, const Ks& ...keys) const noexcept {
+        const auto p = get<T>(group, key, keys...);
         if (!p) return std::move(default_val);
         return *p;
     }
 
+    template<typename Self>
+    auto get(this Self& self, GroupId group) noexcept -> std::conditional_t<std::is_const_v<Self>, const VarMap*, VarMap*> {
+        const auto it = self.find(group);
+        if (it == self.end()) {
+            return nullptr;
+        }
+        return std::addressof(it->second);
+    }
+
+    template<typename Self>
+    auto&& get_ex(this Self&& self, GroupId group) {
+        const auto it = self.find(group);
+        if (it == self.end()) {
+            throw std::out_of_range("GroupId not found");
+        }
+        return std::forward_like<Self>(it->second);
+    }
 };
 
 /**

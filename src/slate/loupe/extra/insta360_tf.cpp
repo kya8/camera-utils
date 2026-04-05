@@ -13,8 +13,8 @@ const Eigen::Matrix3d*
 insta360::get_gyro_to_body_transform(const CameraInfo& info) noexcept
 {
     const auto& map = info.extras;
-    const auto& model_name = map.get_or<std::string>(GroupId::NormalizedMetadata, KeyId::CameraModel);
-    const auto& sub_model = map.get_or<std::string>(GroupId::NormalizedMetadata, KeyId::SubModel);
+    const auto& model_name = map.get_or<std::string>("", GroupId::NormalizedMetadata, KeyId::CameraModel);
+    const auto& sub_model = map.get_or<std::string>("", GroupId::NormalizedMetadata, KeyId::SubModel);
 
     if (model_name == "Insta360 OneRS" && sub_model == "1-Inch 360 Edition") {
         static const Eigen::Matrix3d mat {

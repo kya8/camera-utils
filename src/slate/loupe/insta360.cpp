@@ -255,7 +255,7 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
                 normalize_metadata("cam_posture",         KeyId::CameraRotation);
 
                 // Sub-model
-                if (info.extras.get_or<std::string>(GroupId::NormalizedMetadata, KeyId::CameraModel, "") == "Insta360 OneRS") {
+                if (info.extras.get_or<std::string>("", GroupId::NormalizedMetadata, KeyId::CameraModel) == "Insta360 OneRS") {
                     const auto offset_v3 = info.extras.get<types::VecD>(GroupId::Metadata, "offset_v3");
                     const auto offset = info.extras.get<types::VecD>(GroupId::Metadata, "offset");
                     if (offset_v3 && offset_v3->size() == 40 && int((*offset_v3)[19]) == 62) {

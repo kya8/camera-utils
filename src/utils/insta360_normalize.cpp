@@ -475,8 +475,8 @@ struct Cfg {
                 return 1;
             }
         }
-        const auto camera_model = cam_info->extras.get_or<types::String>(GroupId::NormalizedMetadata, KeyId::CameraModel, "Unknown");
-        const auto camera_SN    = cam_info->extras.get_or<types::String>(GroupId::NormalizedMetadata, KeyId::SerialNumber, "Unknown");
+        const auto camera_model = cam_info->extras.get_or<types::String>("Unknown", GroupId::NormalizedMetadata, KeyId::CameraModel);
+        const auto camera_SN    = cam_info->extras.get_or<types::String>("Unknown", GroupId::NormalizedMetadata, KeyId::SerialNumber);
         cout << "Video file: " << video_file << "\nCamera model: " << camera_model << "\nSN: " << camera_SN << '\n'
             << "Resolution: " << params.width << " x " << params.height << "; Number of lenses: " << params.nb_lens <<  "; Video is Joined: " << (params.joined ? "Yes" : "No") << '\n';
         cout << "Using fov_x angle: " << fov_x << " deg\n";
