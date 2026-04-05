@@ -28,7 +28,8 @@ enum class GroupId {
     SensorData,
     ProcessedData,
     VideoInfo,
-    Other
+    Other,
+    Max_GroupId // sentinel
 };
 
 // Well-know key tag for commonly used types of metadata.
@@ -59,6 +60,7 @@ enum class KeyId {
     TimedCameraQuaternionData,
     TimelapseTimestamp,
     GpsData,
+    Max_KeyId // sentinel
 };
 
 /**
