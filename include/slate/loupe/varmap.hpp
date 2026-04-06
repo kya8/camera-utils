@@ -52,6 +52,7 @@ enum class KeyId {
     FrameCount,
     DisplayRotation,
     VideoTrackIds,
+    VideoCodec,
 
     GyroData,
     AccData,

@@ -28,14 +28,18 @@ detect(const char* video_file, bool metadata_only) noexcept
 
     if(!detect_success && !has_video_info) return {};
     if(has_video_info) {
-        result.extras[GroupId::VideoInfo][KeyId::Duration]         = video_info.duration;
-        result.extras[GroupId::VideoInfo][KeyId::Width]            = types::Int(video_info.width);
-        result.extras[GroupId::VideoInfo][KeyId::Height]           = types::Int(video_info.height);
-        result.extras[GroupId::VideoInfo][KeyId::DisplayRotation]  = types::Int(video_info.display_rotation);
-        result.extras[GroupId::VideoInfo][KeyId::FrameCount]       = types::Int(video_info.nb_frames);
-        result.extras[GroupId::VideoInfo][KeyId::FPS]              = video_info.fps;
-        result.extras[GroupId::VideoInfo][KeyId::IsCFR]            = video_info.is_cfr;
-        result.extras[GroupId::VideoInfo][KeyId::VideoTrackIds]    = std::move(video_track_ids);
+        auto& map = result.extras[GroupId::VideoInfo];
+        map[KeyId::Duration]         = video_info.duration;
+        map[KeyId::Width]            = types::Int(video_info.width);
+        map[KeyId::Height]           = types::Int(video_info.height);
+        map[KeyId::DisplayRotation]  = types::Int(video_info.display_rotation);
+        map[KeyId::FrameCount]       = types::Int(video_info.nb_frames);
+        map[KeyId::FPS]              = video_info.fps;
+        map[KeyId::IsCFR]            = video_info.is_cfr;
+        map[KeyId::VideoTrackIds]    = std::move(video_track_ids);
+        if (!video_info.codec.empty()) {
+            map[KeyId::VideoCodec]   = std::move(video_info.codec);
+        }
     }
 
     return result;
