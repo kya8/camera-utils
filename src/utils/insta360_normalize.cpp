@@ -6,6 +6,7 @@
 #include <slate/loupe/extra/insta360_params.hpp>
 #include <slate/loupe/extra/insta360_tf.hpp>
 #include <iostream>
+#include <print>
 #include <fstream>
 #include <cstdlib>
 #include <cstring>
@@ -19,9 +20,11 @@
 #include "fs.hpp"
 #include <termcolor.hpp>
 #include <numbers>
+#include <algorithm>
+#include <cassert>
 #include "string_utils.hpp"
 
-using namespace std::numbers;
+using std::numbers::pi;
 
 namespace {
 
@@ -86,45 +89,56 @@ CvMaps get_equirectangular_map(int height, const F& proj) noexcept
     return {mapx, mapy};
 }
 
+// Map from EAC uv coordinate [0, 1] to normalized image coordinate.
+auto inverse_eac(double x)
+{
+    return std::tan((x - 0.5) * pi * 0.5);
+};
+
+static constexpr std::string_view cube_order_default = "flubrd";
+
+// cube_order is assumed to be valid
 template<typename F>
-CvMaps get_cubemap(int size, const F& proj, bool equi_angular = false) noexcept // 2*3 stacked
+CvMaps get_cubemap(int size, const F& proj, bool equi_angular, std::string_view cube_order) noexcept
 // EAC projection: https://blog.google/products-and-platforms/products/google-ar-vr/bringing-pixels-front-and-center-vr-video/
 {
-    cv::Mat_<float> mapx(2 * size, 3 * size);
-    cv::Mat_<float> mapy(2 * size, 3 * size);
+    assert(std::ranges::is_permutation(cube_order, cube_order_default) && "invalid cube_order");
 
     static const struct {
-        int row, col;
+        char id;
         Eigen::AngleAxisd rot;
     } LUT_cubes[] {
         /**************
          | F | L | U |
          | B | R | D |
         ***************/
-
         // front
-        {0, 0, Eigen::AngleAxisd::Identity()},
+        {'f', Eigen::AngleAxisd::Identity()},
         // back
-        {1, 0, Eigen::AngleAxisd{pi, Eigen::Vector3d::UnitY()}},
+        {'b', Eigen::AngleAxisd{pi, Eigen::Vector3d::UnitY()}},
         // left
-        {0, 1, Eigen::AngleAxisd{-pi / 2, Eigen::Vector3d::UnitY()}},
+        {'l', Eigen::AngleAxisd{-pi / 2, Eigen::Vector3d::UnitY()}},
         // right
-        {1, 1, Eigen::AngleAxisd{pi / 2, Eigen::Vector3d::UnitY()}},
+        {'r', Eigen::AngleAxisd{pi / 2, Eigen::Vector3d::UnitY()}},
         // up
-        {0, 2, Eigen::AngleAxisd{pi / 2, Eigen::Vector3d::UnitX()}},
+        {'u', Eigen::AngleAxisd{pi / 2, Eigen::Vector3d::UnitX()}},
         // down
-        {1, 2, Eigen::AngleAxisd{-pi / 2, Eigen::Vector3d::UnitX()}}
+        {'d', Eigen::AngleAxisd{-pi / 2, Eigen::Vector3d::UnitX()}}
     };
 
     const auto c = (size - 1) / 2.0; // The optical center is at the exact center of pixels.
     const auto f = c;
 
-    // Map from EAC uv coordinate [0, 1] to normalized image coordinate.
-    static constexpr auto inverse_eac = [](double x) {
-        return std::tan((x - 0.5) * pi * 0.5);
-    };
+    cv::Mat_<float> mapx(2 * size, 3 * size);
+    cv::Mat_<float> mapy(2 * size, 3 * size);
 
-    for (const auto& [R, C, rot] : LUT_cubes) {
+    for (auto i = 0uz; i < cube_order.size(); ++i) {
+        // For each face in the order string, find its destination row/col in the grid,
+        // and its associated direction(rotation).
+        const auto R = i / 3;
+        const auto C = i % 3;
+        const auto& rot = std::ranges::find(LUT_cubes, cube_order[i], [](const auto& x){ return x.id; })->rot;
+
         const Eigen::Quaterniond quat{rot};
         for (int row = 0; row < size; ++row) {
             for (int col = 0; col < size; ++col) {
@@ -163,8 +177,11 @@ Options:
      --no-crop          Disable cropping. (For testing only)
  -T, --threads <NUM>    Number of threads to use. Default is 0 (auto).
  -E, --eqr              Equirectangular projection.
- -C, --cube             Cubemap projection.
+ -C, --cube             Cubemap projection. The output image is a grid of 2 rows and 3 columns.
      --eac              Use Equi-Angular projection for cubemap.
+     --cube-order <S>   Specify order of faces in the cubemap. S should be a permutation of "fblrud",
+                        meaning front, back, left, right, up, down respectively. S maps to subimages
+                        in the cubemap grid in row-first order. Default: flubrd
      --tf               Specify transform from lens0 to lens1. x, y, z, qx, qy, qz, qw.
                         If not specified, built-in transform is used.
  -F, --format <FORMAT>  Output image format, e.g. jpg/png. Default: jpg.
@@ -184,6 +201,7 @@ struct Cfg {
     bool print_help = false;
     Mode mode = Split;
     bool eac = false;
+    std::string_view cubemap_order = cube_order_default;
     bool has_tf = false;
     Eigen::Isometry3d tf;
     std::string output_image_format = "jpg";
@@ -205,51 +223,45 @@ struct Cfg {
                 if (check_arg()) {
                     video_file = argv[++i];
                 }
-            }
-            else if (match(argv[i], "-l", "-0", "--dir0", "-d0")) {
+            } else if (match(argv[i], "-l", "-0", "--dir0", "-d0")) {
                 if (check_arg()) {
                     dir[0] = argv[++i];
                 }
-            }
-            else if (match(argv[i], "-r", "-1", "--dir1", "-d1")) {
+            } else if (match(argv[i], "-r", "-1", "--dir1", "-d1")) {
                 if (check_arg()) {
                     dir[1] = argv[++i];
                 }
-            }
-            else if (match(argv[i], "-f", "--fov")) {
+            } else if (match(argv[i], "-f", "--fov")) {
                 if (check_arg()) {
                     char* str_end;
                     fov_x = std::strtod(argv[++i], &str_end);
                     if (str_end == argv[i]) err_flag = 1;
                 }
-            }
-            else if (match(argv[i], "-w", "--width")) {
+            } else if (match(argv[i], "-w", "--width")) {
                 if (check_arg()) {
                     char* str_end;
                     output_width = std::strtol(argv[++i], &str_end, 0);
                     if (str_end == argv[i]) err_flag = 1;
                 }
-            }
-            else if (match(argv[i], "--no-crop")) {
+            } else if (match(argv[i], "--no-crop")) {
                 with_crop = false;
-            }
-            else if (match(argv[i], "-T", "--threads")) {
+            } else if (match(argv[i], "-T", "--threads")) {
                 if (check_arg()) {
                     char* str_end;
                     nb_threads = std::strtoul(argv[++i], &str_end, 0);
                     if (str_end == argv[i]) err_flag = 1;
                 }
-            }
-            else if (match(argv[i], "-E", "--eqr")) {
+            } else if (match(argv[i], "-E", "--eqr")) {
                 mode = Equirectangular;
-            }
-            else if (match(argv[i], "-C", "--cube")) {
+            } else if (match(argv[i], "-C", "--cube")) {
                 mode = Cubemap;
-            }
-            else if (match(argv[i], "--eac")) {
+            } else if (match(argv[i], "--cube-order")) {
+                if (check_arg()) {
+                    cubemap_order = argv[++i];
+                }
+            } else if (match(argv[i], "--eac")) {
                 eac = true;
-            }
-            else if (match(argv[i], "--tf")) {
+            } else if (match(argv[i], "--tf")) {
                 if (check_arg()) {
                     const auto v = parse_csv(argv[++i]);
                     if (v.size() != 7) {
@@ -259,16 +271,13 @@ struct Cfg {
                         tf = Eigen::Translation3d(v[0], v[1], v[2]) * Eigen::Quaterniond(v.data() + 3);
                     }
                 }
-            }
-            else if (match(argv[i], "-V", "--version")) {
+            } else if (match(argv[i], "-V", "--version")) {
                 print_version = true;
                 break;
-            }
-            else if (match(argv[i], "-h", "--help")) {
+            } else if (match(argv[i], "-h", "--help")) {
                 print_help = true;
                 break;
-            }
-            else if (match(argv[i], "-F", "--format")) {
+            } else if (match(argv[i], "-F", "--format")) {
                 if (check_arg()) {
                     output_image_format = argv[++i];
                 }
@@ -304,7 +313,7 @@ struct Cfg {
                 if (mode == Equirectangular)
                     return get_equirectangular_map(output_height, proj);
                 else
-                    return get_cubemap(params.height / 2, proj, eac);
+                    return get_cubemap(params.height / 2, proj, eac, cubemap_order);
             }
             return get_perspective_map({output_width, output_height}, f, cx, cy,
             [&](double x, double y, double z) {
@@ -444,6 +453,12 @@ struct Cfg {
             return 2;
         }
 
+        // Check cubemap order
+        if (mode == Mode::Cubemap && !std::ranges::is_permutation(cubemap_order, cube_order_default)) {
+            std::println(stderr, "'{}' is not a valid cubemap order.", cubemap_order);
+            return 2;
+        }
+
         if (mode && dir[0].empty()) {
             cerr << "Equirectangular/Cubemap projection requires full imagery.\n";
             return 2;
@@ -494,7 +509,13 @@ struct Cfg {
         const auto camera_SN    = cam_info->extras.get_or<types::String>("Unknown", GroupId::NormalizedMetadata, KeyId::SerialNumber);
         cout << "Video file: " << video_file << "\nCamera model: " << camera_model << "\nSN: " << camera_SN << '\n'
             << "Resolution: " << params.width << " x " << params.height << "; Number of lenses: " << params.nb_lens <<  "; Video is Joined: " << (params.joined ? "Yes" : "No") << '\n';
-        cout << "Using fov_x angle: " << fov_x << " deg\n";
+        if (mode == Mode::Split) {
+            std::println("Using fov_x angle: {} deg", fov_x);
+        } else if (mode == Mode::Cubemap) {
+            std::println("Cubemap projection with EAC={}, face order '{}'.", eac, cubemap_order);
+        } else if (mode == Mode::Equirectangular) {
+            std::println("Equirectangular projection.");
+        }
 
         if (params.selfie) {
             cerr << "Bad lens direction!\n";
