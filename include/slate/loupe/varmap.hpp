@@ -172,7 +172,7 @@ struct VarMap : Map {
 
     template<typename T, typename Self, KeyType K, KeyType ...Ks>
     auto&& get_ex(this Self&& self, const K& key, const Ks& ...keys) {
-        auto&& val = std::forward<Self>(self).get_value_ex(key, keys...);
+        auto& val = self.get_value_ex(key, keys...);
         const auto p = std::get_if<T>(&val);
         if (!p)
             throw std::out_of_range("Value type mismatch");
