@@ -42,7 +42,9 @@ parse_csv(const char* str, char delim = ',') noexcept
 
 namespace fs = std::filesystem;
 
-using CvMaps = std::pair<cv::Mat_<float>, cv::Mat_<float>>;
+struct CvMaps {
+    cv::Mat_<float> mapx, mapy;
+};
 
 template<typename F>
 CvMaps get_perspective_map(cv::Size size, double f, double cx, double cy, const F& proj) noexcept
@@ -85,7 +87,8 @@ CvMaps get_equirectangular_map(int height, const F& proj) noexcept
 }
 
 template<typename F>
-CvMaps get_cubemap(int size, const F& proj) noexcept // 2*3 stacked
+CvMaps get_cubemap(int size, const F& proj, bool equi_angular = false) noexcept // 2*3 stacked
+// EAC projection: https://blog.google/products-and-platforms/products/google-ar-vr/bringing-pixels-front-and-center-vr-video/
 {
     cv::Mat_<float> mapx(2 * size, 3 * size);
     cv::Mat_<float> mapy(2 * size, 3 * size);
@@ -113,14 +116,21 @@ CvMaps get_cubemap(int size, const F& proj) noexcept // 2*3 stacked
         {1, 2, Eigen::AngleAxisd{-pi / 2, Eigen::Vector3d::UnitX()}}
     };
 
-    const auto c = (size - 1) / 2.0;
+    const auto c = (size - 1) / 2.0; // The optical center is at the exact center of pixels.
     const auto f = c;
+
+    // Map from EAC uv coordinate [0, 1] to normalized image coordinate.
+    static constexpr auto inverse_eac = [](double x) {
+        return std::tan((x - 0.5) * pi * 0.5);
+    };
 
     for (const auto& [R, C, rot] : LUT_cubes) {
         const Eigen::Quaterniond quat{rot};
         for (int row = 0; row < size; ++row) {
             for (int col = 0; col < size; ++col) {
-                const Eigen::Vector3d pt = quat * Eigen::Vector3d{(col - c) / f, (row - c) / f, 1.0};
+                const auto xn = equi_angular? inverse_eac(double(col) / size) : (col - c) / f;
+                const auto yn = equi_angular? inverse_eac(double(row) / size) : (row - c) / f;
+                const Eigen::Vector3d pt = quat * Eigen::Vector3d{xn, yn, 1.0};
                 const auto uv  = proj(pt.x(), pt.y(), pt.z());
                 mapx(R*size + row, C*size + col) = static_cast<float>(uv[0]);
                 mapy(R*size + row, C*size + col) = static_cast<float>(uv[1]);
@@ -152,8 +162,9 @@ Options:
  -w, --width <NUM>      Output image width. Default: original video width.
      --no-crop          Disable cropping. (For testing only)
  -T, --threads <NUM>    Number of threads to use. Default is 0 (auto).
-     --eqr              Equirectangular projection.
-     --cube             Cubemap projection.
+ -E, --eqr              Equirectangular projection.
+ -C, --cube             Cubemap projection.
+     --eac              Use Equi-Angular projection for cubemap.
      --tf               Specify transform from lens0 to lens1. x, y, z, qx, qy, qz, qw.
                         If not specified, built-in transform is used.
  -F, --format <FORMAT>  Output image format, e.g. jpg/png. Default: jpg.
@@ -172,6 +183,7 @@ struct Cfg {
     bool print_version = false;
     bool print_help = false;
     Mode mode = Split;
+    bool eac = false;
     bool has_tf = false;
     Eigen::Isometry3d tf;
     std::string output_image_format = "jpg";
@@ -228,11 +240,14 @@ struct Cfg {
                     if (str_end == argv[i]) err_flag = 1;
                 }
             }
-            else if (match(argv[i], "--eqr")) {
+            else if (match(argv[i], "-E", "--eqr")) {
                 mode = Equirectangular;
             }
-            else if (match(argv[i], "--cube")) {
+            else if (match(argv[i], "-C", "--cube")) {
                 mode = Cubemap;
+            }
+            else if (match(argv[i], "--eac")) {
+                eac = true;
             }
             else if (match(argv[i], "--tf")) {
                 if (check_arg()) {
@@ -275,7 +290,7 @@ struct Cfg {
         const auto cy = (output_height - 1) / 2.0;
         const auto f = cx / std::tan(fov_x / 2 * 0.01745329251994329577);
 
-        const auto& [map1, map2] = [&] {
+        const auto maps = [&] {
             if (mode) {
                 const auto proj = [&](double x, double y, double z) {
                     if (z >= 0) {
@@ -289,7 +304,7 @@ struct Cfg {
                 if (mode == Equirectangular)
                     return get_equirectangular_map(output_height, proj);
                 else
-                    return get_cubemap(params.height / 2, proj);
+                    return get_cubemap(params.height / 2, proj, eac);
             }
             return get_perspective_map({output_width, output_height}, f, cx, cy,
             [&](double x, double y, double z) {
@@ -355,7 +370,7 @@ struct Cfg {
                     // check image dimension...
 
                     cv::Mat out;
-                    cv::remap(in, out, map1, map2, cv::InterpolationFlags::INTER_LINEAR);
+                    cv::remap(in, out, maps.mapx, maps.mapy, cv::InterpolationFlags::INTER_LINEAR);
                     const auto dst = output_dir / src.filename().replace_extension(output_image_format);
                     if (!imwrite(dst.string(), out, {cv::IMWRITE_JPEG_QUALITY, 90})) {
                         cerr << "Failure writing output file " << dst << '\n';
