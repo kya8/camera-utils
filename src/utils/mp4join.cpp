@@ -8,6 +8,7 @@
 #include <thread>
 #include <atomic>
 #include <filesystem>
+#include <array>
 #include "sys_utils.hpp"
 
 namespace fs = std::filesystem;
@@ -22,6 +23,19 @@ bool get_yn(bool default_val = false) noexcept
     }
     return ans != 'n' && ans != 'N';
 }
+
+auto get_spinner() noexcept
+{
+    // Characters for spinning progress indicator.
+    static constexpr auto chars = std::to_array<std::string_view>({"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"});
+    return [i = 0u] mutable -> auto& {
+        const auto& ret = chars[i];
+        if (++i == chars.size())
+            i = 0;
+        return ret;
+    };
+}
+
 
 const auto& help_msg =
 R"^^(🎞️ mp4join: Utility for joining consecutive MP4 files.
@@ -100,7 +114,7 @@ int slate::main_mp4join(int argc, char** argv) noexcept
     MergeResult ret;
     std::atomic<bool> done = false;
     std::atomic<int> prog = -1;
-    int prog_prev = -1;
+    //int prog_prev = -1;
 
     const auto prog_fn = [] (void* data, int prog_) {
         static_cast<std::atomic<int>*>(data)->store(prog_, std::memory_order_release);
@@ -113,20 +127,21 @@ int slate::main_mp4join(int argc, char** argv) noexcept
     };
 
     if (stdout_is_tty) {
-        std::fputs("\x1b[?25l", stdout); // hide cursor
+        // std::fputs("\x1b[?25l", stdout); // hide cursor
         static constexpr int busy_spin_cnt = 5;
         static constexpr int busy_spin_interval = 1;
         static constexpr int relaxed_spin_interval = 100;
+        auto spinner = get_spinner();
         for (int cnt = 0; !done.load(std::memory_order_acquire); cnt += (cnt < busy_spin_cnt), std::this_thread::sleep_for(std::chrono::milliseconds(cnt < busy_spin_cnt ? busy_spin_interval : relaxed_spin_interval))) {
             const auto prog_new = prog.load(std::memory_order_acquire);
-            if (prog_new > prog_prev) {
-                std::print("\rProgress: {}%", prog_new);
+            if (prog_new >= 0 && cnt >= busy_spin_cnt - 1) {
+                std::print("\r\x1b[36m{}\x1b[0m Progress: \x1b[1m{}%\x1b[0m", spinner(), prog_new);
                 std::fflush(stdout);
-                prog_prev = prog_new;
+                // prog_prev = prog_new;
             }
         }
-        // Clear the progress line and show cursor again.
-        std::fputs("\x1b[2K\r\x1b[?25h", stdout);
+        // Clear the progress line
+        std::fputs("\x1b[2K\r", stdout);
     }
 
     worker.join();
@@ -137,13 +152,13 @@ int slate::main_mp4join(int argc, char** argv) noexcept
         std::println("Merge done: {}", output_str);
         break;
     case(InvalidInput):
-        std::println("Merge error: Invalid input file.");
+        std::println("\x1b[1;31mError:\x1b[0m Invalid input file.");
         break;
     case(IoError):
-        std::println("Merge error: Could not open file.");
+        std::println("\x1b[1;31mError:\x1b[0m Could not open file.");
         break;
     case(InternalError):
-        std::println("Merge error: Internal merge error.");
+        std::println("\x1b[1;31mError:\x1b[0m Internal merge error.");
         break;
     }
 
