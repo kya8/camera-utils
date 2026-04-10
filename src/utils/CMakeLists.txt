@@ -5,14 +5,13 @@ find_package(Eigen3 CONFIG REQUIRED)
 set(MULTI_CALL_NAMES calibrator insta360_normalize mp4join)
 set(MAIN_NAME loupe) # This is arbitary
 
-add_executable(slate_utils
-slate_utils.hpp
-calibrator.cpp
-loupe.cpp
-insta360_normalize.cpp
-mp4join.cpp
-main.cpp
+file(GLOB_RECURSE slate_utils_sources CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
 )
+
+add_executable(slate_utils ${slate_utils_sources})
 
 set_target_properties(slate_utils PROPERTIES OUTPUT_NAME ${MAIN_NAME})
 
