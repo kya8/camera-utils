@@ -1,6 +1,5 @@
 #include "detectors.hpp"
 #include <cstdint>
-#include <cstring>
 #include <vector>
 #include "loupe/insta360_metadata.pb.h"
 #include "helper_templates.hpp"
@@ -8,6 +7,9 @@
 #include <map>
 #include <utility>
 #include <format>
+#include <ranges>
+#include <charconv>
+#include <string_view>
 
 using namespace slate::mp4;
 
@@ -46,26 +48,15 @@ enum RecordFormat : std::uint8_t {
 };
 
 std::vector<double>
-parse_offset_string(const std::string& offset)
+parse_offset_string(std::string_view offset)
 {
     std::vector<double> result;
-    constexpr auto delim = '_';
-    std::string::size_type p1 = 0, p2 = 0;
-    while(p1 < offset.size()) {
-        if ((p2 = offset.find(delim, p1)) == offset.npos) {
-            p2 = offset.size();
-        }
-        try {
-            const auto d = std::stod(offset.substr(p1, p2-p1));
-            result.push_back(d);
-        }
-        catch(const std::invalid_argument&) {
+    for (const auto s : std::views::split(offset, std::string_view("_"))) {
+        double val;
+        if (std::from_chars(s.data(), s.data() + s.size(), val).ec != std::errc{}) {
             return {};
         }
-        catch(const std::out_of_range&) {
-            return {};
-        }
-        p1 = p2 + 1;
+        result.push_back(val);
     }
     return result;
 }
