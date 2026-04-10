@@ -22,7 +22,7 @@
 #include "sys_utils.hpp"
 #include "fs.hpp"
 
-using std::numbers::pi;
+using std::numbers::pi, std::numbers::inv_pi;
 
 namespace {
 
@@ -85,17 +85,27 @@ CvMaps get_equirectangular_map(int height, auto&& proj) noexcept
     return {mapx, mapy};
 }
 
+// Project from normalized image coordinate to EAC uv coordinate [0, 1]
+// EAC projection: https://blog.google/products-and-platforms/products/google-ar-vr/bringing-pixels-front-and-center-vr-video/
+[[maybe_unused]] double project_eac(double x)
+{
+    return 2 * inv_pi * std::atan(x) + 0.5;
+}
+
 // Map from EAC uv coordinate [0, 1] to normalized image coordinate.
-auto inverse_eac(double x)
+double inverse_eac(double x)
 {
     return std::tan((x - 0.5) * pi * 0.5);
 };
 
+/**************
+ | F | L | U |
+ | B | R | D |
+***************/
 static constexpr std::string_view cube_order_default = "flubrd";
 
 // cube_order is assumed to be valid
 CvMaps get_cubemap(int size, auto&& proj, bool equi_angular, std::string_view cube_order) noexcept
-// EAC projection: https://blog.google/products-and-platforms/products/google-ar-vr/bringing-pixels-front-and-center-vr-video/
 {
     assert(std::ranges::is_permutation(cube_order, cube_order_default) && "invalid cube_order");
 
@@ -103,10 +113,6 @@ CvMaps get_cubemap(int size, auto&& proj, bool equi_angular, std::string_view cu
         char id;
         Eigen::AngleAxisd rot;
     } lut_faces[] {
-        /**************
-         | F | L | U |
-         | B | R | D |
-        ***************/
         // front
         {'f', Eigen::AngleAxisd::Identity()},
         // back
@@ -162,21 +168,22 @@ R"^^(🌐 insta360_normalize: Undistort images from insta360 cameras.
 Usage: insta360_normalize <-v FILE> [-0 DIRECTORY] [-1 DIRECTORY] [OPTIONS...]
 
 Options:
- -v, --video <FILE>     Primary .insv video file
- -0, --dir0 <DIR>       Image directory for lens 0 or joint video
- -1, --dir1 <DIR>       Secondary image directory for lens 1, in case the videos are split
+ -v, --video <FILE>     Primary .insv video file.
+ -0, --dir0 <DIR>       Image directory for lens 0 or joint video.
+ -1, --dir1 <DIR>       Secondary image directory for lens 1, in case the videos are split.
  -f, --fov <FOV>        Horizontal FOV angle (degrees, full view) of undistorted image. Default: 90.
+                        Only applicable for perspective projection.
  -w, --width <NUM>      Output image width. Default: original video width.
      --no-crop          Disable cropping. (For testing only)
  -T, --threads <NUM>    Number of threads to use. Default is 0 (auto).
  -E, --eqr              Equirectangular projection.
- -C, --cube             Cubemap projection. The output image is a grid of 2 rows and 3 columns.
+ -C, --cube             Cubemap projection. The output image is a 2x3 grid of square faces.
      --eac              Use Equi-Angular projection for cubemap.
      --cube-order <S>   Specify order of faces in the cubemap. S should be a permutation of "fblrud",
                         meaning front, back, left, right, up, down respectively. S maps to subimages
-                        in the cubemap grid in row-first order. Default: flubrd
-     --tf               Specify transform from lens0 to lens1. x, y, z, qx, qy, qz, qw.
-                        If not specified, built-in transform is used.
+                        in the cubemap grid in row-first order. Default: flubrd.
+     --tf               Specify transform from lens0 to lens1, in the form of x,y,z,qx,qy,qz,qw.
+                        If not specified, built-in transform from video metadata is used.
  -F, --format <FORMAT>  Output image format, e.g. jpg/png. Default: jpg.
  -V, --version          Display version information.
  -h, --help             Display this help message.
