@@ -26,10 +26,10 @@ jobs:
       fail-fast: false
 
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-26]
         build_type: [Release]
         include:
-          - os: macos-latest
+          - os: macos-26
             # cmake_extra_flags: "-D CMAKE_OSX_ARCHITECTURES='arm64;x86_64'"
             vcpkg_triplet: "arm64-osx"
           - os: windows-latest
