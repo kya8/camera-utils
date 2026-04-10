@@ -5,24 +5,22 @@
 #include <slate/loupe/loupe.hpp>
 #include <slate/loupe/extra/insta360_params.hpp>
 #include <slate/loupe/extra/insta360_tf.hpp>
-#include <iostream>
 #include <print>
+#include <cstdio>
 #include <fstream>
-#include <cstdlib>
-#include <cstring>
+#include <tuple>
 #include <cmath>        // std::tan
 #include <Eigen/Geometry>
-#include "ThreadPool.hpp"
 #include <thread>       // hardware_concurrency()
 #include <memory>
-#include "version.hpp"
-#include "sys_utils.hpp"
-#include "fs.hpp"
-#include <termcolor.hpp>
 #include <numbers>
 #include <algorithm>
 #include <cassert>
+#include "ThreadPool.hpp"
 #include "string_utils.hpp"
+#include "version.hpp"
+#include "sys_utils.hpp"
+#include "fs.hpp"
 
 using std::numbers::pi;
 
@@ -49,8 +47,7 @@ struct CvMaps {
     cv::Mat_<float> mapx, mapy;
 };
 
-template<typename F>
-CvMaps get_perspective_map(cv::Size size, double f, double cx, double cy, const F& proj) noexcept
+CvMaps get_perspective_map(cv::Size size, double f, double cx, double cy, auto&& proj) noexcept
 {
     cv::Mat_<float> mapx(size.height, size.width);
     cv::Mat_<float> mapy(size.height, size.width);
@@ -68,8 +65,7 @@ CvMaps get_perspective_map(cv::Size size, double f, double cx, double cy, const 
     return {mapx, mapy};
 }
 
-template<typename F>
-CvMaps get_equirectangular_map(int height, const F& proj) noexcept
+CvMaps get_equirectangular_map(int height, auto&& proj) noexcept
 {
     const auto width = height * 2;
 
@@ -98,8 +94,7 @@ auto inverse_eac(double x)
 static constexpr std::string_view cube_order_default = "flubrd";
 
 // cube_order is assumed to be valid
-template<typename F>
-CvMaps get_cubemap(int size, const F& proj, bool equi_angular, std::string_view cube_order) noexcept
+CvMaps get_cubemap(int size, auto&& proj, bool equi_angular, std::string_view cube_order) noexcept
 // EAC projection: https://blog.google/products-and-platforms/products/google-ar-vr/bringing-pixels-front-and-center-vr-video/
 {
     assert(std::ranges::is_permutation(cube_order, cube_order_default) && "invalid cube_order");
@@ -107,7 +102,7 @@ CvMaps get_cubemap(int size, const F& proj, bool equi_angular, std::string_view 
     static const struct {
         char id;
         Eigen::AngleAxisd rot;
-    } LUT_cubes[] {
+    } lut_faces[] {
         /**************
          | F | L | U |
          | B | R | D |
@@ -137,7 +132,7 @@ CvMaps get_cubemap(int size, const F& proj, bool equi_angular, std::string_view 
         // and its associated direction(rotation).
         const auto R = i / 3;
         const auto C = i % 3;
-        const auto& rot = std::ranges::find(LUT_cubes, cube_order[i], [](const auto& x){ return x.id; })->rot;
+        const auto& rot = std::ranges::find(lut_faces, cube_order[i], [](const auto& x){ return x.id; })->rot;
 
         const Eigen::Quaterniond quat{rot};
         for (int row = 0; row < size; ++row) {
@@ -154,8 +149,6 @@ CvMaps get_cubemap(int size, const F& proj, bool equi_angular, std::string_view 
 
     return {mapx, mapy};
 }
-
-using std::cout, std::cerr, std::endl;
 
 enum Mode {
     Split = 0,
@@ -328,27 +321,27 @@ struct Cfg {
         const auto& work_dir = (lens_id == 0) || (params.joined)? dir[0] : dir[1];
 
         if (!fs::is_directory(work_dir) || (mode && !params.joined && !fs::is_directory(dir[1]))) {
-            cerr << "Invalid image directory.\n";
+            std::println(stderr, "Invalid image directory.");
             return false;
         }
         const auto output_dir = work_dir / (lens_id == 0? "normalized_0" : "normalized_1");
         const auto image_files = util::get_most_occuring_extension_files(work_dir);
         if (image_files.empty()) {
-            cerr << "No images were found!\n";
+            std::println(stderr, "No images were found!");
             return false;
         }
         {
             std::error_code ec;
             fs::create_directories(output_dir, ec);
             if (ec) {
-                cerr << "Cannot create output directory.\n";
-                return EXIT_FAILURE;
+                std::println(stderr, "Cannot create output directory.");
+                return 1;
             }
         }
 
         // Process images
         const auto total_images = image_files.size();
-        cout << total_images << " images to process...\n";
+        std::println("{} images to process...", total_images);
         std::size_t cnt_done = 0, prev_done = 0, cnt_bad = 0;
         std::condition_variable cond;
         std::mutex mtx;
@@ -372,7 +365,7 @@ struct Cfg {
                         in = std::move(concat);
                     }
                     if (in.empty()) {
-                        cerr << "Failure reading image " << src << '\n';
+                        std::println(stderr, "Failure reading image {}", src.string());
                         return 1;
                     }
 
@@ -380,9 +373,9 @@ struct Cfg {
 
                     cv::Mat out;
                     cv::remap(in, out, maps.mapx, maps.mapy, cv::InterpolationFlags::INTER_LINEAR);
-                    const auto dst = output_dir / src.filename().replace_extension(output_image_format);
-                    if (!imwrite(dst.string(), out, {cv::IMWRITE_JPEG_QUALITY, 90})) {
-                        cerr << "Failure writing output file " << dst << '\n';
+                    const auto dst = (output_dir / src.filename().replace_extension(output_image_format)).string();
+                    if (!imwrite(dst, out, {cv::IMWRITE_JPEG_QUALITY, 90})) {
+                        std::println(stderr, "Failure writing output file {}", dst);
                         return 1;
                     }
                     return 0;
@@ -406,24 +399,27 @@ struct Cfg {
             }
             std::string out {"\r"};
             out.append(std::to_string(prev_done)).append(" / ").append(std::to_string(total_images));
-            cout << out << std::flush;
+            std::fputs(out.c_str(), stdout);
+            std::fflush(stdout);
             if (prev_done == total_images) break;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         pool.wait_all();
         push_work.join();
-        if (mode) cout << (mode == Equirectangular? "\nEquirectangular" : "\nCubemap");
-        else cout << "\nLens " << lens_id;
-        cout << " finished: " << total_images << " total, " << cnt_bad << " failed.\n";
+        if (mode != Mode::Split)
+            std::print("{}", (mode == Equirectangular? "\nEquirectangular" : "\nCubemap"));
+        else
+            std::print("\nLens {}", lens_id);
+        std::print(" finished: {} in total, {} failed.\n", total_images, cnt_bad);
 
-        if (!mode) {
+        if (mode == Mode::Split) {
             std::ofstream ofs(output_dir / "normalized_camera_params.txt");
             if (!ofs) {
-                cerr << "Error creating params file.\n";
+                std::println(stderr, "Error creating params file.");
             }
             else {
-                ofs << "Output image size: " << output_width << "*" << output_height << '\n';
-                ofs << "Lens " << lens_id << ": Undistorted fx, fy, cx, cy: " << f << ", " << f << ", " << cx << ", " << cy << '\n';
+                std::println(ofs, "Output image size: {}*{}", output_width, output_height);
+                std::println(ofs, "Lens {}: Undistorted fx, fy, cx, cy: {}, {}, {}, {}", lens_id, f, f, cx, cy);
             }
         }
 
@@ -443,13 +439,12 @@ struct Cfg {
         }
 
         if (print_help) {
-            cout << help_message;
+            std::fputs(help_message, stdout);
             return 0;
         }
 
         if (!args_ok || video_file.empty() || (dir[0].empty() && dir[1].empty())) {
-            cerr << tc::wrap<tc::RedFg, tc::Bold>("Invalid argument!\n", []{return sys::is_colorterm(stderr);});
-            cout << "Pass '-h' for help.\n";
+            std::print(stderr, "Invalid argument.\nPass '-h' for help.\n");
             return 2;
         }
 
@@ -460,17 +455,17 @@ struct Cfg {
         }
 
         if (mode && dir[0].empty()) {
-            cerr << "Equirectangular/Cubemap projection requires full imagery.\n";
+            std::println(stderr, "Equirectangular/Cubemap projection requires full imagery.");
             return 2;
         }
 
         if (fov_x >= 180 || fov_x <= 0) {
-            cerr << "Invalid FOV angle!\n";
+            std::println(stderr, "Invalid FOV angle!");
             return 2;
         }
 
         if (!cv::haveImageWriter(std::string{"."} += output_image_format)) {
-            cerr << "Unsupported output image format: " << output_image_format << ".\n";
+            std::println(stderr, "Unsupported output image format: {}", output_image_format);
             return 1;
         }
 
@@ -479,7 +474,7 @@ struct Cfg {
         insta360::Params params;
         const auto cam_info = detect(video_file.c_str(), true);
         if (!cam_info || !insta360::get_params(*cam_info, params, with_crop)) {
-            cerr << "Could not read camera info from video file.\n";
+            std::println(stderr, "Could not read camera info from video file {}.", video_file);
             return 1;
         }
 
@@ -496,19 +491,19 @@ struct Cfg {
                     return false;
                 const Eigen::Quaterniond r_01 = Eigen::Quaterniond(*r_b1) * Eigen::Quaterniond(*r_b0).inverse();
                 tf = Eigen::Translation3d{*t_01} * r_01;
-                cout << "Using built-in lenses transform: [" << t_01->x() << ", " << t_01->y() << ", " << t_01->z() << ", "
-                                                             << r_01.x() << ", " << r_01.y() << ", " << r_01.z() << ", " << r_01.w() << "]\n";
+                std::println("Using built-in lenses transform: {}", std::tie(t_01->x(), t_01->y(), t_01->z(),
+                                                                             r_01.x(), r_01.y(), r_01.z(), r_01.w()));
                 return true;
             }();
             if (!has_tf) {
-                cerr << "Could not extract built-in lenses transform, which is required.\n";
+                std::println(stderr, "Could not extract built-in lenses transform, which is required.");
                 return 1;
             }
         }
         const auto camera_model = cam_info->extras.get_or<types::String>("Unknown", GroupId::NormalizedMetadata, KeyId::CameraModel);
         const auto camera_SN    = cam_info->extras.get_or<types::String>("Unknown", GroupId::NormalizedMetadata, KeyId::SerialNumber);
-        cout << "Video file: " << video_file << "\nCamera model: " << camera_model << "\nSN: " << camera_SN << '\n'
-            << "Resolution: " << params.width << " x " << params.height << "; Number of lenses: " << params.nb_lens <<  "; Video is Joined: " << (params.joined ? "Yes" : "No") << '\n';
+        std::print("Video file: {}\nCamera model: {}\nSN: {}\nResolution: {} x {}; Number of lenses: {}; Video is joined: {}\n",
+                   video_file, camera_model, camera_SN, params.width, params.height, params.nb_lens, params.joined);
         if (mode == Mode::Split) {
             std::println("Using fov_x angle: {} deg", fov_x);
         } else if (mode == Mode::Cubemap) {
@@ -518,20 +513,20 @@ struct Cfg {
         }
 
         if (params.selfie) {
-            cerr << "Bad lens direction!\n";
+            std::println(stderr, "Bad lenses direction.");
             return 1;
         }
 
         if (params.joined && !dir[1].empty()) {
-            cerr << "Secondary image directory provided, but video is joined.\n";
+            std::println(stderr, "Secondary image directory provided, but video is joined.");
             return 1;
         }
         if (!dir[1].empty() && params.nb_lens < 2) {
-            cerr << "Only one lens was detected!\n";
+            std::println(stderr, "Only one lens was detected!");
             return 1;
         }
         if (mode && !params.joined && dir[1].empty()) {
-            cerr << "Missing secondary image dir\n";
+            std::println(stderr, "Missing secondary image directory.");
             return 1;
         }
 
