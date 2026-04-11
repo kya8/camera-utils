@@ -2,8 +2,6 @@
 #define THREAD_POOL_HPP_FE77F15C_8C2D_411A_8D40_2AA77362894A
 
 #include "ThreadPoolFwd.hpp"
-// #include <functional>
-#include <boost/compat/move_only_function.hpp>
 #include <vector>
 #include <deque>
 #include <thread>
@@ -13,17 +11,24 @@
 #include <boost/circular_buffer.hpp>
 #include <concepts>
 
+#if HAVE_MOVE_ONLY_FUNCTION
+#include <functional>
+#else
+#include <boost/compat/move_only_function.hpp>
+#endif
+
 
 namespace detail {
 
+// For specializing based on whether the task queue is bounded or not.
 template<bool Bounded>
 struct ThreadPoolBase {
 };
 
 template<>
 struct ThreadPoolBase<true> {
-    std::size_t max_jobs;
-    std::condition_variable cond_enqueue{};
+    std::size_t max_jobs; // Runtime upper limit of stored tasks.
+    std::condition_variable cond_enqueue{}; // Signals that enqueuing threads should continue.
 };
 
 } // namespace detail
@@ -32,12 +37,19 @@ struct ThreadPoolBase<true> {
 template<bool Bounded>
 class ThreadPool : detail::ThreadPoolBase<Bounded> {
 public:
+
+    /**
+     * Constructs a bounded thread pool, with an upper limit on task queue size.
+     */
     ThreadPool(std::size_t nb_threads, std::size_t max_jobs)
     noexcept requires (Bounded) : detail::ThreadPoolBase<Bounded>{max_jobs}, tasks(max_jobs)
     {
         start_workers(nb_threads);
     }
 
+    /**
+     * Constructs an unbounded thread pool, with no upper limit on task queue size.
+     */
     ThreadPool(std::size_t nb_threads)
     noexcept requires (!Bounded)
     {
@@ -65,9 +77,14 @@ public:
     // Not copiable.
     ThreadPool(const ThreadPool&) = delete;
     ThreadPool& operator=(const ThreadPool&) = delete;
+
     // Not movable.
     // If you really need to move me, wrap me inside unique_ptr.
 
+    /**
+     * Destructor.
+     * Wait for all tasks to finish, then join the threads.
+     */
     ~ThreadPool() noexcept
     {
         stop();
@@ -78,7 +95,6 @@ public:
 
     /**
      * Request to stop the pool.
-     *
      * Remaining tasks will continue on. Enqueuing is blocked.
      */
     void stop() noexcept
@@ -124,7 +140,7 @@ public:
     /**
      * Enqueue a task
      * 
-     * @return Returns `false` if pool is stopped
+     * @return Returns `false` if pool is stopped, so the task cannot be enqueued.
      */
     template<typename F>
     bool enqueue(F&& f) noexcept
@@ -151,15 +167,19 @@ private:
     std::vector<std::thread> workers;
 
     std::mutex mutex_;
-    std::condition_variable cond_work;
-    bool stop_ = false;
+    std::condition_variable cond_work; // Signals worker threads to continue.
+    bool stop_ = false; // Whether workers shall stop.
 
-    std::size_t nb_working = 0;
-    std::condition_variable cond_all_done;
+    std::size_t nb_working = 0; // Number of worker threads that are working on the task.
+    std::condition_variable cond_all_done; // Signals that task queue is empty and no worker thread is working.
 
     // move_only_function is used for type-erased task storage.
     // It has lower overhead, and allows non-copyable tasks.
+#if HAVE_MOVE_ONLY_FUNCTION
+    using TaskT = std::move_only_function<void() &>;
+#else
     using TaskT = boost::compat::move_only_function<void() &>;
+#endif
     using QueueT = std::conditional_t<Bounded, boost::circular_buffer<TaskT>, std::deque<TaskT>>;
     QueueT tasks;
 

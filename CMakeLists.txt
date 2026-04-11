@@ -68,6 +68,9 @@ find_package(Threads REQUIRED)
 
 set(SLATE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(SLATE_PUBLIC_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(SLATE_CMAKE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
+include(cmake/tests/tests.cmake)
 
 add_subdirectory(third_party/gpmf-parser)
 add_subdirectory(src/common)
