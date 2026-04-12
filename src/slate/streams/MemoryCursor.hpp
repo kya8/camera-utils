@@ -32,12 +32,12 @@ public:
         assert(len >= 0);
     }
 
-    bool is_open() const noexcept { return this->begin_ != nullptr; }
-    auto data() const noexcept { return this->begin_; }
-    auto len() const noexcept { return this->len_; }
+    [[nodiscard]] bool is_open() const noexcept { return this->begin_ != nullptr; }
+    [[nodiscard]] auto data() const noexcept { return this->begin_; }
+    [[nodiscard]] auto len() const noexcept { return this->len_; }
     static constexpr bool is_mutable = Mutable;
 
-    OffsetType tell() const noexcept { return cursor_ - begin_; }
+    [[nodiscard]] OffsetType tell() const noexcept { return cursor_ - begin_; }
     void seek(OffsetType offset, SeekFrom from = SeekFrom::Begin)
     {
         switch (from) {
@@ -81,13 +81,13 @@ template<bool Mutable>
 class Cursor;
 
 template<>
-class Cursor<false> : public detail::CursorCommon<false>, public ReadStream<Cursor<false>> {
+class Cursor<false> : public detail::CursorCommon<false>, public ReadStreamTag, public ReadStreamMixin {
 public:
     Cursor(const void* buf, std::ptrdiff_t len) noexcept : detail::CursorCommon<false>(static_cast<Pointer>(buf), len) {}
 };
 
 template<>
-class Cursor<true> : public detail::CursorCommon<true>, public RWStream<Cursor<true>> {
+class Cursor<true> : public detail::CursorCommon<true>, public RWStreamTag, public RWStreamMixin {
 public:
     Cursor(void* buf, std::ptrdiff_t len) noexcept : detail::CursorCommon<true>(static_cast<Pointer>(buf), len) {}
     void write(const void* buf, std::size_t n)

@@ -8,6 +8,7 @@
 #include <cassert>
 #include "helper_templates.hpp"
 #include "range.hpp"
+#include "slate/streams/BinaryStream.hpp"
 
 using std::uint8_t, std::uint32_t, std::uint64_t, std::int64_t;
 
@@ -263,8 +264,8 @@ merge_info(MergeInfo& info, Mp4Stream& file, std::size_t file_id, std::size_t cu
     return true;
 }
 
-template<class D1, class D2>
-void copy_with_merge_prog(WriteStreamBase<D1>& dst, ReadStreamBase<D2>& src, std::size_t n, std::size_t bufsize, const MergeProgCb& cb, int prog_start, int prog_end)
+template<WriteStream Dst, ReadStream Src>
+void copy_with_merge_prog(Dst& dst, Src& src, std::size_t n, std::size_t bufsize, const MergeProgCb& cb, int prog_start, int prog_end)
 {
     assert(cb); // assumes cb is not empty
     #ifdef __cpp_lib_smart_ptr_for_overwrite

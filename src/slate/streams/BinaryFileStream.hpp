@@ -1,7 +1,6 @@
 #ifndef BINARY_FILE_STREAM_HPP_E7292879_5125_4AAA_9BE7_DF944BD6B10A
 #define BINARY_FILE_STREAM_HPP_E7292879_5125_4AAA_9BE7_DF944BD6B10A
 
-#include <string>
 #include "BinaryStream.hpp"
 #include "lfs.h"  // 64-bit ftell/fseek
 
@@ -16,7 +15,7 @@ enum class FileStreamMode {
     AppendExtended
 };
 
-class BinaryFileStream : public RWStream<BinaryFileStream> {
+class BinaryFileStream : public RWStreamTag, public RWStreamMixin {
 public:
     BinaryFileStream() noexcept = default;
     ~BinaryFileStream() noexcept;
@@ -28,8 +27,8 @@ public:
 
     bool open(const char* filename, FileStreamMode mode = FileStreamMode::Read) noexcept;
     bool close() noexcept;
-    bool is_open() const noexcept;
-    OffsetType get_length() const noexcept;
+    [[nodiscard]] bool is_open() const noexcept;
+    [[nodiscard]] OffsetType get_length() const noexcept;
 
     void read(void* buf, std::size_t n)
     {
@@ -60,7 +59,7 @@ public:
         }()) != 0)
             throw StreamIoError("File stream seek error");
     }
-    OffsetType tell() const
+    [[nodiscard]] OffsetType tell() const
     {
         // if (!is_open) return -1;
         const auto ret = detail::ftell64(fp);

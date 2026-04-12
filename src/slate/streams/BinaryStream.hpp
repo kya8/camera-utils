@@ -10,6 +10,7 @@
 #include <tuple>
 #include <bit>
 #include <utility>
+#include <concepts>
 
 namespace slate {
 
@@ -38,70 +39,57 @@ struct StreamIoError : StreamError {
     using StreamError::StreamError;
 };
 
-//FIXME: Separate RO and RW types
+// Tags for stream concepts.
+// Implementors should inherit from these tags.
+struct ReadStreamTag {};
+struct WriteStreamTag {};
+struct RWStreamTag : ReadStreamTag, WriteStreamTag {};
 
-template<typename Derived, int Tag = 0> // Tag is used to avoid diamond inheritance
-class BinaryStreamBase {
-public:
-
-    decltype(auto) seek(OffsetType offset, SeekFrom from = SeekFrom::Begin) {
-        return static_cast<Derived*>(this)->seek(offset, from);
-    }
-
-    decltype(auto) tell() const {
-        return static_cast<const Derived*>(this)->tell();
-    }
-
-    auto is_open() const noexcept {
-        return static_cast<const Derived*>(this)->is_open();
-    }
-
-protected:
-    BinaryStreamBase() noexcept = default;
+// Concept for basic stream operations.
+template<typename T>
+concept BasicStream = requires(T a, OffsetType off, SeekFrom seek) {
+    { a.is_open() } -> std::same_as<bool>;
+    a.seek(off, seek);
+    { a.tell() } -> std::same_as<OffsetType>;
 };
 
-template<typename Derived>
-class ReadStreamBase : public BinaryStreamBase<Derived, 0> {
-public:
-    decltype(auto) read(void* buf, std::size_t size) {
-        return static_cast<Derived*>(this)->read(buf, size);
-    }
-};
+// Concept for reader stream.
+template<typename T>
+concept ReadStream = BasicStream<T> && requires(T a, void* p, std::size_t size) {
+    a.read(p, size);
+} && std::derived_from<T, ReadStreamTag>;
 
-template<typename Derived>
-class WriteStreamBase : public BinaryStreamBase<Derived, 1> {
-public:
-    decltype(auto) write(const void* buf, std::size_t size) {
-        return static_cast<Derived*>(this)->write(buf, size);
-    }
-};
+// Concept for writer stream.
+template<typename T>
+concept WriteStream = BasicStream<T> && requires(T a, const void* p, std::size_t size) {
+    a.write(p, size);
+} && std::derived_from<T, WriteStreamTag>;
 
-// template<typename Derived>
-// class RWStreamBase : public ReadStreamBase<Derived>, public WriteStreamBase<Derived> {};
-
-template<typename Derived>
-class ReadStream : public ReadStreamBase<Derived> {
+// Mixin class for readers
+class ReadStreamMixin {
 public:
-    template <Endian endian=Endian::BE, typename T, unsigned BytesToRead = sizeof(T)>
+    template <Endian endian=Endian::BE, typename T, unsigned BytesToRead = sizeof(T), ReadStream Self>
     // signed integer with BytesToRead < sizeof(T) is not supported
-    requires (std::is_arithmetic_v<T> && BytesToRead <= sizeof(T) && !(std::is_signed_v<T> && BytesToRead < sizeof(T)))
-    void read_num(T& dest)
+    requires (
+        std::is_arithmetic_v<T> && BytesToRead <= sizeof(T) && !(std::is_signed_v<T> && BytesToRead < sizeof(T))
+        )
+    void read_num(this Self& self, T& dest)
     {
         if constexpr (BytesToRead < sizeof(T)) dest = 0; // zero-out bytes. For unsigned integers only
         static constexpr unsigned offset = target_endian == Endian::LE ? 0 : sizeof(T) - BytesToRead;
         const auto p = reinterpret_cast<unsigned char*>(&dest) + offset;
-        this->read(p, BytesToRead);
+        self.read(p, BytesToRead);
         if constexpr (endian != target_endian) std::reverse(p, p + BytesToRead);
     }
 
-    template <Endian endian=Endian::BE, typename T, unsigned BytesToRead = sizeof(T)>
+    template <Endian endian=Endian::BE, typename T, unsigned BytesToRead = sizeof(T), ReadStream Self>
     requires (std::is_arithmetic_v<T> && BytesToRead <= sizeof(T) && !(std::is_signed_v<T> && BytesToRead < sizeof(T)))
-    T read_num()
+    T read_num(this Self& self)
     {
         T out{};
         static constexpr unsigned offset = endian == Endian::LE ? 0 : sizeof(T) - BytesToRead;
         const auto p = reinterpret_cast<unsigned char*>(&out) + offset;
-        this->read(p, BytesToRead);
+        self.read(p, BytesToRead);
         if constexpr (endian == target_endian) {
             return out;
         } else {
@@ -110,82 +98,82 @@ public:
     }
 
     // runtime endianness
-    template <typename T, unsigned BytesToRead = sizeof(T)>
+    template <typename T, unsigned BytesToRead = sizeof(T), ReadStream Self> // We have to deduce Self here to the actual type, otherwise read_num isn't avaiable by ourself, since it needs to meet ReadStream
     requires (std::is_arithmetic_v<T> && BytesToRead <= sizeof(T) && !(std::is_signed_v<T> && BytesToRead < sizeof(T)))
-    void read_num(Endian endian, T& dest) {
+    void read_num(this Self& self, Endian endian, T& dest) {
         switch (endian) {
         case Endian::BE:
-            read_num<Endian::BE, T, BytesToRead>(dest);
+            self.template read_num<Endian::BE, T, BytesToRead>(dest);
             break;
         case Endian::LE:
-            read_num<Endian::LE, T, BytesToRead>(dest);
+            self.template read_num<Endian::LE, T, BytesToRead>(dest);
             break;
         default:
             std::unreachable();
         }
     }
 
-    template <typename T, unsigned BytesToRead = sizeof(T)>
+    template <typename T, unsigned BytesToRead = sizeof(T), ReadStream Self>
     requires (std::is_arithmetic_v<T> && BytesToRead <= sizeof(T) && !(std::is_signed_v<T> && BytesToRead < sizeof(T)))
-    T read_num(Endian endian) {
+    T read_num(this Self& self, Endian endian) {
         switch (endian) {
         case Endian::BE:
-            return read_num<Endian::BE, T, BytesToRead>();
+            return self.template read_num<Endian::BE, T, BytesToRead>();
         case Endian::LE:
-            return read_num<Endian::LE, T, BytesToRead>();
+            return self.template read_num<Endian::LE, T, BytesToRead>();
         default:
             std::unreachable();
         }
     }
 
-    template <Endian endian=Endian::BE, typename ...Ts>
+    template <Endian endian=Endian::BE, typename ...Ts, ReadStream Self>
     requires (std::is_arithmetic_v<Ts> && ...)
-    void read_nums(Ts& ...Args) {
-        (read_num<endian>(Args), ...);
+    void read_nums(this Self& self, Ts& ...Args) {
+        (self.template read_num<endian>(Args), ...);
     }
 
-    template<Endian endian=Endian::BE, typename ...Ts>
+    template<Endian endian=Endian::BE, typename ...Ts, ReadStream Self>
     requires (std::is_arithmetic_v<Ts> && ...)
-    std::tuple<Ts...> read_nums() {
-        return {read_num<endian, Ts>()...};
+    std::tuple<Ts...> read_nums(this Self& self) {
+        return {self.template read_num<endian, Ts>()...};
     }
 
-    template <typename ...Ts>
+    template <typename ...Ts, ReadStream Self>
     requires (std::is_arithmetic_v<Ts> && ...)
-    void read_nums(Endian endian, Ts& ...Args) {
+    void read_nums(this Self& self, Endian endian, Ts& ...Args) {
         switch (endian) {
         case Endian::BE:
-            read_nums<Endian::BE>(Args...);
+            self.template read_nums<Endian::BE>(Args...);
             break;
         case Endian::LE:
-            read_nums<Endian::LE>(Args...);
+            self.template read_nums<Endian::LE>(Args...);
             break;
         default:
             std::unreachable();
         }
     }
 
-    template <typename ...Ts>
+    template <typename ...Ts, ReadStream Self>
     requires (std::is_arithmetic_v<Ts> && ...)
-    std::tuple<Ts...> read_nums(Endian endian) {
+    std::tuple<Ts...> read_nums(this Self& self, Endian endian) {
         switch (endian) {
         case Endian::BE:
-            return read_nums<Endian::BE, Ts...>();
+            return self.template read_nums<Endian::BE, Ts...>();
         case Endian::LE:
-            return read_nums<Endian::LE, Ts...>();
+            return self.template read_nums<Endian::LE, Ts...>();
         default:
             std::unreachable();
         }
     }
 };
 
-template<typename Derived>
-class WriteStream : public WriteStreamBase<Derived> {
+// Mixin class for writer streams
+class WriteStreamMixin {
 public:
-    template<typename OtherDerived>
-    void copy_from(ReadStreamBase<OtherDerived>& in, std::size_t n) // Generic copy via userspace buffer
+    template<ReadStream Src, WriteStream Self>
+    void copy_from(this Self& self, Src& in, std::size_t n) // Generic copy via userspace buffer
     {
-        if (!(in.is_open() && this->is_open())) {
+        if (!(in.is_open() && self.is_open())) {
             throw StreamError{"Stream not open"};
         }
         const auto buf_sz = n > 4 * 1024 * 1024 ? 4 * 1024 * 1024 : n;
@@ -198,58 +186,53 @@ public:
         while (n > 0) {
             const auto to_read = n > buf_sz ? buf_sz : n;
             in.read(buf.get(), to_read);
-            this->write(buf.get(), to_read);
+            self.write(buf.get(), to_read);
             n -= to_read;
         }
     }
 
-    void patch_bytes(OffsetType offset, const void* buf, std::size_t n) {
-        const auto mark = this->tell();
-        this->seek(offset, SeekFrom::Begin);
-        this->write(buf, n);
-        this->seek(mark, SeekFrom::Begin);
+    template<WriteStream Self>
+    void patch_bytes(this Self& self, OffsetType offset, const void* buf, std::size_t n) {
+        const auto mark = self.tell();
+        self.seek(offset, SeekFrom::Begin);
+        self.write(buf, n);
+        self.seek(mark, SeekFrom::Begin);
     }
 
-    template <Endian endian=Endian::BE, typename T, unsigned BytesToWrite = sizeof(T)>
+    template <Endian endian=Endian::BE, typename T, unsigned BytesToWrite = sizeof(T), WriteStream Self>
     requires (std::is_arithmetic_v<T> && BytesToWrite <= sizeof(T) && !(std::is_signed_v<T> && BytesToWrite < sizeof(T)))
-    void write_num(const T& src)
+    void write_num(this Self& self, const T& src)
     {
         static constexpr unsigned offset = target_endian == Endian::LE ? 0 : sizeof(T) - BytesToWrite;
         const auto p = reinterpret_cast<const unsigned char*>(&src) + offset;
         if constexpr (endian != target_endian) {
             unsigned char buf[BytesToWrite];
             std::reverse_copy(p, p + BytesToWrite, buf);
-            this->write(buf, BytesToWrite);
+            self.write(buf, BytesToWrite);
         }
         else {
-            this->write(p, BytesToWrite);
+            self.write(p, BytesToWrite);
         }
     }
 
-    template <Endian endian=Endian::BE, typename ...Ts>
+    template <Endian endian=Endian::BE, typename ...Ts, WriteStream Self>
     requires (std::is_arithmetic_v<Ts> && ...)
-    void write_nums(const Ts& ...Args) {
-        (write_num<endian>(Args), ...);
+    void write_nums(this Self& self, const Ts& ...Args) {
+        (self.template write_num<endian>(Args), ...);
     }
 
-    template <Endian endian=Endian::BE, typename T, unsigned BytesToWrite = sizeof(T)>
-    void patch_num(OffsetType offset, const T &src)
+    template <Endian endian=Endian::BE, typename T, unsigned BytesToWrite = sizeof(T), WriteStream Self>
+    void patch_num(this Self& self, OffsetType offset, const T &src)
     {
-        const auto mark = this->tell();
-        this->seek(offset);
-        this->write_num<endian, T, BytesToWrite>(src);
-        this->seek(mark);
+        const auto mark = self.tell();
+        self.seek(offset);
+        self.template write_num<endian, T, BytesToWrite>(src);
+        self.seek(mark);
     }
 };
 
-
-template<typename Derived>
-class RWStream : public ReadStream<Derived>, public WriteStream<Derived> {
-// public:
-
-// protected:
-//     BinaryStream() noexcept = default;
-};
+// Mixin class for RW streams.
+class RWStreamMixin : public ReadStreamMixin, public WriteStreamMixin {};
 
 } // namespace slate
 
