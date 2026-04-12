@@ -10,7 +10,9 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 #include <unistd.h>
+extern "C" {
 #include <limits.h>
+}
 #ifndef HOST_NAME_MAX
 #define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
 #endif

@@ -8,7 +8,9 @@
 #endif
 #endif
 
+extern "C" {
 #include <stdio.h>
+}
 
 // Wrappers for 64-bit fseek/ftell
 
