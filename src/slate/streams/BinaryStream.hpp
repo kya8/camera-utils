@@ -6,8 +6,10 @@
 #include <type_traits>
 #include <stdexcept>
 #include <algorithm>
-#include <memory> // make_unique
-#include "endian.h"    // detect target endian
+#include <memory>
+#include <tuple>
+#include <bit>
+#include <utility>
 
 namespace slate {
 
@@ -24,7 +26,9 @@ enum class Endian {
     BE
 };
 
-inline constexpr Endian target_endian = SLATE_ENDIAN == SLATE_BIG_ENDIAN ? Endian::BE : Endian::LE;
+static_assert(std::endian::native == std::endian::little || std::endian::native == std::endian::big, "mixed endian is not supported");
+
+inline constexpr Endian target_endian = (std::endian::native == std::endian::big) ? Endian::BE : Endian::LE;
 
 struct StreamError : std::runtime_error {
     using std::runtime_error::runtime_error;
@@ -79,11 +83,10 @@ template<typename Derived>
 class ReadStream : public ReadStreamBase<Derived> {
 public:
     template <Endian endian=Endian::BE, typename T, unsigned BytesToRead = sizeof(T)>
+    // signed integer with BytesToRead < sizeof(T) is not supported
+    requires (std::is_arithmetic_v<T> && BytesToRead <= sizeof(T) && !(std::is_signed_v<T> && BytesToRead < sizeof(T)))
     void read_num(T& dest)
     {
-        // signed integer with BytesToRead < sizeof(T) is not supported
-        static_assert(std::is_arithmetic_v<T> && BytesToRead <= sizeof(T) && !(std::is_signed_v<T> && BytesToRead < sizeof(T)));
-
         if constexpr (BytesToRead < sizeof(T)) dest = 0; // zero-out bytes. For unsigned integers only
         static constexpr unsigned offset = target_endian == Endian::LE ? 0 : sizeof(T) - BytesToRead;
         const auto p = reinterpret_cast<unsigned char*>(&dest) + offset;
@@ -91,8 +94,24 @@ public:
         if constexpr (endian != target_endian) std::reverse(p, p + BytesToRead);
     }
 
+    template <Endian endian=Endian::BE, typename T, unsigned BytesToRead = sizeof(T)>
+    requires (std::is_arithmetic_v<T> && BytesToRead <= sizeof(T) && !(std::is_signed_v<T> && BytesToRead < sizeof(T)))
+    T read_num()
+    {
+        T out{};
+        static constexpr unsigned offset = endian == Endian::LE ? 0 : sizeof(T) - BytesToRead;
+        const auto p = reinterpret_cast<unsigned char*>(&out) + offset;
+        this->read(p, BytesToRead);
+        if constexpr (endian == target_endian) {
+            return out;
+        } else {
+            return std::byteswap(out);
+        }
+    }
+
     // runtime endianness
     template <typename T, unsigned BytesToRead = sizeof(T)>
+    requires (std::is_arithmetic_v<T> && BytesToRead <= sizeof(T) && !(std::is_signed_v<T> && BytesToRead < sizeof(T)))
     void read_num(Endian endian, T& dest) {
         switch (endian) {
         case Endian::BE:
@@ -101,23 +120,61 @@ public:
         case Endian::LE:
             read_num<Endian::LE, T, BytesToRead>(dest);
             break;
+        default:
+            std::unreachable();
+        }
+    }
+
+    template <typename T, unsigned BytesToRead = sizeof(T)>
+    requires (std::is_arithmetic_v<T> && BytesToRead <= sizeof(T) && !(std::is_signed_v<T> && BytesToRead < sizeof(T)))
+    T read_num(Endian endian) {
+        switch (endian) {
+        case Endian::BE:
+            return read_num<Endian::BE, T, BytesToRead>();
+        case Endian::LE:
+            return read_num<Endian::LE, T, BytesToRead>();
+        default:
+            std::unreachable();
         }
     }
 
     template <Endian endian=Endian::BE, typename ...Ts>
+    requires (std::is_arithmetic_v<Ts> && ...)
     void read_nums(Ts& ...Args) {
         (read_num<endian>(Args), ...);
     }
 
+    template<Endian endian=Endian::BE, typename ...Ts>
+    requires (std::is_arithmetic_v<Ts> && ...)
+    std::tuple<Ts...> read_nums() {
+        return {read_num<endian, Ts>()...};
+    }
+
     template <typename ...Ts>
+    requires (std::is_arithmetic_v<Ts> && ...)
     void read_nums(Endian endian, Ts& ...Args) {
         switch (endian) {
         case Endian::BE:
-            (read_nums<Endian::BE>(Args),...);
+            read_nums<Endian::BE>(Args...);
             break;
         case Endian::LE:
-            (read_nums<Endian::LE>(Args),...);
+            read_nums<Endian::LE>(Args...);
             break;
+        default:
+            std::unreachable();
+        }
+    }
+
+    template <typename ...Ts>
+    requires (std::is_arithmetic_v<Ts> && ...)
+    std::tuple<Ts...> read_nums(Endian endian) {
+        switch (endian) {
+        case Endian::BE:
+            return read_nums<Endian::BE, Ts...>();
+        case Endian::LE:
+            return read_nums<Endian::LE, Ts...>();
+        default:
+            std::unreachable();
         }
     }
 };
@@ -154,10 +211,9 @@ public:
     }
 
     template <Endian endian=Endian::BE, typename T, unsigned BytesToWrite = sizeof(T)>
+    requires (std::is_arithmetic_v<T> && BytesToWrite <= sizeof(T) && !(std::is_signed_v<T> && BytesToWrite < sizeof(T)))
     void write_num(const T& src)
     {
-        static_assert(std::is_arithmetic_v<T> && BytesToWrite <= sizeof(T) && !(std::is_signed_v<T> && BytesToWrite < sizeof(T)));
-
         static constexpr unsigned offset = target_endian == Endian::LE ? 0 : sizeof(T) - BytesToWrite;
         const auto p = reinterpret_cast<const unsigned char*>(&src) + offset;
         if constexpr (endian != target_endian) {
@@ -171,6 +227,7 @@ public:
     }
 
     template <Endian endian=Endian::BE, typename ...Ts>
+    requires (std::is_arithmetic_v<Ts> && ...)
     void write_nums(const Ts& ...Args) {
         (write_num<endian>(Args), ...);
     }
