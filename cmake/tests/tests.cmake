@@ -14,4 +14,4 @@ function(test_and_set file define)
     endif()
 endfunction()
 
-test_and_set(${SLATE_CMAKE_DIR}/tests/move_only_function.cpp HAVE_MOVE_ONLY_FUNCTION)
+test_and_set(${CMAKE_CURRENT_LIST_DIR}/move_only_function.cpp HAVE_MOVE_ONLY_FUNCTION)
