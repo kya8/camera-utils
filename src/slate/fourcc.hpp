@@ -7,8 +7,10 @@
 
 namespace slate {
 
+using FourCC = std::uint32_t;
+
 template <std::size_t N>
-constexpr std::uint32_t
+constexpr FourCC
 fourcc(const char(&s)[N]) noexcept
 {
     static_assert(N >= 4, "FourCC must contain 4 characters");
@@ -29,6 +31,7 @@ fourcc_str(std::uint32_t u) noexcept {
 
 inline namespace fourcc_literal {
 
+#if 0
 namespace detail {
 
 // Owning wrapper for converting a string literal
@@ -53,6 +56,18 @@ constexpr std::uint32_t operator""_fc() noexcept {
            static_cast<std::uint32_t>(Str.str[1]) << 16 |
            static_cast<std::uint32_t>(Str.str[2]) << 8 |
            static_cast<std::uint32_t>(Str.str[3]);
+}
+#endif
+
+consteval FourCC operator""_fc(const char* s, std::size_t len)
+{
+    if (len != 4) {
+        throw "FourCC must contain exactly 4 characters";
+    }
+    return static_cast<std::uint32_t>(s[0]) << 24 |
+           static_cast<std::uint32_t>(s[1]) << 16 |
+           static_cast<std::uint32_t>(s[2]) << 8 |
+           static_cast<std::uint32_t>(s[3]);
 }
 
 } // namespace fourcc_literal
