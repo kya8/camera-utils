@@ -1,4 +1,5 @@
 #include "slate_utils.hpp"
+#include <opencv2/core.hpp>
 #include <print>
 #include <filesystem>
 #include <vector>
@@ -26,7 +27,7 @@
 
 #include "fs.hpp"
 #include "string_utils.hpp"
-#include <time_utils.hpp>
+#include "time_utils.hpp"
 
 
 // TODO:
@@ -169,7 +170,11 @@ Options:
   -h, --help              Display this help message.
 )^^";
 
-auto format_mat(const cv::Mat& mat, cv::Formatter::FormatType fmt = cv::Formatter::FMT_DEFAULT)
+template<typename T>
+requires requires(T mat) {
+    cv::format(mat, cv::Formatter::FMT_DEFAULT);
+}
+auto format_mat(const T& mat, cv::Formatter::FormatType fmt = cv::Formatter::FMT_DEFAULT)
 {
     std::ostringstream ss;
     ss << cv::format(mat, fmt);
@@ -379,24 +384,21 @@ try
             std::println(stderr, "Failed to open report file: {}", report.string());
             return 1;
         }
-        const auto datetime = []() -> std::string {
-            char buf[64]{0};
+        const auto local_time = []() {
             const auto t = std::time(nullptr);
-            std::tm tm;
-            if (util::localtime(t, tm) != 0 || std::strftime(buf, 64, "%Y-%m-%d %H:%M:%S", &tm) == 0) {
-                return "";
-            }
-            return buf;
+            std::tm tm{};
+            util::localtime(t, tm);
+            return util::format_time(tm, "%Y-%m-%d %H:%M:%S");
         }();
-        ofs << std::boolalpha;
-        ofs << "# Calibrator report generated at: " << datetime << '\n'
-            << "# Image directory: " << dir << '\n'
-            << "# Rows x Cols: " << pattern_size->height << " x " << pattern_size->width << '\n'
-            << "# Invert: " << invert << '\n'
-            << "# k3: " << use_k3 << '\n'
-            << "# Detection method: " << (corner_sb ? 1 : 0) << "\n"
-            << "# Detected images: " << images.size() << " / " << nb_input_images << '\n'
-            << '\n';
+        std::print(ofs, "# Calibrator report generated at: {}\n"
+                        "# Image directory: {}\n"
+                        "# Rows x Cols: {} x {}\n"
+                        "# Invert: {}\n"
+                        "# k3: {}\n"
+                        "# Detection method: {}\n"
+                        "# Detected images: {} / {}\n\n",
+                    local_time, dir.string(), pattern_size->height, pattern_size->width, invert, use_k3, (corner_sb? 1 : 0),
+                    images.size(), nb_input_images);
 
         if (!failed_images.empty()) {
             ofs << "Failed images:\n";
@@ -406,20 +408,24 @@ try
             ofs << '\n';
         }
 
-        ofs << "Image size:\n"
-            << image_size.width << ", " << image_size.height << "\n\n"
-            << "Camera matrix:\n" << cv::format(camera_matrix, cv::Formatter::FMT_CSV) << '\n'
-            << "Distortion (k1, k2, p1, p2, k3):\n" << cv::format(distortion_coef, cv::Formatter::FMT_CSV) << "\n\n"
-            << "RMS reprojection error:\n" << rms_error << "\n\n"
-            << "Per-image reprojection error:\n";
+        std::print(ofs,
+                   "Image size:\n{}, {}\n\n"
+                   "Camera matrix:\n{}\n"
+                   "Distortion (k1, k2, p1, p2, k3):\n{:n}\n\n"
+                   "RMS reprojection error:\n{:.5f}\n\n"
+                   "Per-image reprojection error:\n",
+                   image_size.width, image_size.height,
+                   format_mat(camera_matrix, cv::Formatter::FMT_CSV),
+                   distortion_coef,
+                   rms_error);
         for (const auto& [img, val] : std::views::zip(images, per_view_error)) {
-            ofs << img.string() << ": " << val << '\n';
+            std::println(ofs, "{}: {:.5f}", img.string(), val);
         }
     }
 
     return 0;
 }
 catch (const fs::filesystem_error& ex) {
-    std::cerr << ex.what() << '\n';
+    std::println(stderr, "{}", ex.what());
     return 1;
 }
