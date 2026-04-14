@@ -13,7 +13,10 @@ file(GLOB_RECURSE slate_utils_sources CONFIGURE_DEPENDS
 
 add_executable(slate_utils ${slate_utils_sources})
 
-set_target_properties(slate_utils PROPERTIES OUTPUT_NAME ${MAIN_NAME})
+set_target_properties(slate_utils PROPERTIES
+    OUTPUT_NAME ${MAIN_NAME}
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+)
 
 target_link_libraries(slate_utils
 PRIVATE
