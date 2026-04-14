@@ -13,8 +13,9 @@ project(slate
 LANGUAGES CXX
 VERSION 0.1.0)
 
-option(SLATE_OPTIMIZED_X86_64 "Enable optimized x86-64 builds, targetting x86-64-v3 or equivalent." ON)
 option(BUILD_SHARED_LIBS "Build shared library" OFF)
+option(SLATE_OPTIMIZED_X86_64 "Enable optimized x86-64 builds, targetting x86-64-v3 or equivalent." ON)
+option(SLATE_BUILD_UTILS "Build command line utilities." ON)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -75,7 +76,9 @@ include(cmake/tests/tests.cmake)
 add_subdirectory(third_party/gpmf-parser)
 add_subdirectory(src/common)
 add_subdirectory(src/slate)
+if(SLATE_BUILD_UTILS)
 add_subdirectory(src/utils)
+endif()
 
 #include(InstallRequiredSystemLibraries)
 set(CPACK_PACKAGE_FILE_NAME ${PROJECT_NAME}-${GIT_DESC}_${CMAKE_SYSTEM_NAME}_${CMAKE_SYSTEM_PROCESSOR})
