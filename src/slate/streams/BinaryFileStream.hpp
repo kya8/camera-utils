@@ -3,6 +3,7 @@
 
 #include "BinaryStream.hpp"
 #include "lfs.h"  // 64-bit ftell/fseek
+#include <cassert>
 
 namespace slate {
 
@@ -18,6 +19,7 @@ enum class FileStreamMode {
 class BinaryFileStream : public RWStreamTag, public RWStreamMixin {
 public:
     BinaryFileStream() noexcept = default;
+    BinaryFileStream(const char* filename, FileStreamMode mode = FileStreamMode::Read);
     ~BinaryFileStream() noexcept;
 
     BinaryFileStream(const BinaryFileStream&) = delete;
@@ -29,10 +31,11 @@ public:
     bool close() noexcept;
     [[nodiscard]] bool is_open() const noexcept;
     [[nodiscard]] OffsetType get_length() const noexcept;
+    [[nodiscard]] auto get_handle() const noexcept { return fp; }
 
     void read(void* buf, std::size_t n)
     {
-        // if (!is_open) return false; // this should be a pre-condition
+        assert(is_open());
         if (n == 0)
             return;
         if (fread(buf, n, 1, fp) != 1)
@@ -40,7 +43,7 @@ public:
     }
     void write(const void* buf, std::size_t n)
     {
-        // if (!is_open) return false;
+        assert(is_open());
         if (n == 0)
             return;
         if (fwrite(buf, n, 1, fp) != 1)
@@ -48,7 +51,7 @@ public:
     }
     void seek(OffsetType offset, SeekFrom from = SeekFrom::Begin)
     {
-        // if (!is_open) return false;
+        assert(is_open());
         if (detail::fseek64(fp, offset, [from]{
             switch(from) {
                 case(SeekFrom::Begin)  : return SEEK_SET;
@@ -61,7 +64,7 @@ public:
     }
     [[nodiscard]] OffsetType tell() const
     {
-        // if (!is_open) return -1;
+        assert(is_open());
         const auto ret = detail::ftell64(fp);
         if (ret == -1L)
             throw StreamIoError{"File stream tell error"};

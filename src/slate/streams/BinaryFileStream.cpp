@@ -1,4 +1,20 @@
+#ifdef _WIN32
+// Use POSIX compatible functions from UCRT.
+#include <sys/stat.h>
+#include <sys/types.h>
+#else
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+#include <sys/stat.h>
+#endif
+
 #include "BinaryFileStream.hpp"
+#include "slate/streams/BinaryStream.hpp"
+
+extern "C" {
+#include "stdio.h"
+}
 
 namespace slate {
 
@@ -23,30 +39,61 @@ BinaryFileStream& BinaryFileStream::operator=(BinaryFileStream&& rhs) noexcept
     return *this;
 }
 
+namespace {
+
+const char* convert(FileStreamMode mode) noexcept
+{
+
+    switch (mode) {
+    case FileStreamMode::Read          : return "rb";
+    case FileStreamMode::Write         : return "wb";
+    case FileStreamMode::Append        : return "ab";
+    case FileStreamMode::ReadExtended  : return "r+b";
+    case FileStreamMode::WriteExtended : return "w+b";
+    case FileStreamMode::AppendExtended: return "a+b";
+    }
+    return nullptr;
+}
+
+// Assumes f is open
+OffsetType get_file_size(std::FILE* f) noexcept
+{
+#ifdef _WIN32
+    const auto fd = _fileno(f);
+    struct _stat64 st;
+    if (_fstat64(fd, &st) == -1) {
+        return -1;
+    }
+    return st.st_size;
+#else
+    const auto fd = fileno(f);
+    struct stat st;
+    if (fstat(fd, &st) == -1) {
+        return -1;
+    }
+    return st.st_size;
+#endif
+}
+
+} // namespace
+
+BinaryFileStream::BinaryFileStream(const char* filename, FileStreamMode mode)
+{
+    assert(filename != nullptr);
+    if (!open(filename, mode)) {
+        throw StreamError("Error opening file");
+    }
+}
+
 bool
 BinaryFileStream::open(const char* filename, FileStreamMode mode) noexcept
 {
+    assert(filename != nullptr);
     if (fp) {
         return false;
     }
 
-    const auto mode_str = [mode]() -> const char* {
-        switch (mode) {
-        case FileStreamMode::Read:
-            return "rb";
-        case FileStreamMode::Write:
-            return "wb";
-        case FileStreamMode::Append:
-            return "ab";
-        case FileStreamMode::ReadExtended:
-            return "r+b";
-        case FileStreamMode::WriteExtended:
-            return "w+b";
-        case FileStreamMode::AppendExtended:
-            return "a+b";
-        }
-        return nullptr;
-    }();
+    const auto mode_str = convert(mode);
     if (!mode_str) {
         return false;
     }
@@ -65,11 +112,7 @@ BinaryFileStream::open(const char* filename, FileStreamMode mode) noexcept
     }
 
     if (mode == FileStreamMode::Read || mode == FileStreamMode::ReadExtended) {
-        if (detail::fseek64(fp, 0, SEEK_END) != 0) {
-            return false;
-        }
-        fsize = detail::ftell64(fp);
-        detail::fseek64(fp, 0, SEEK_SET);
+        fsize = get_file_size(fp);
         if (fsize < 0) {
             return false;
         }
