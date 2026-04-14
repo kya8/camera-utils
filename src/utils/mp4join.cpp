@@ -70,7 +70,7 @@ int slate::main_mp4join(int argc, char** argv) noexcept
                 print_version = true;
                 break;
             } else if (match(argv[i], "-h", "--help")) {
-                std::print("{}", help_msg);
+                std::fputs(help_msg, stdout);
                 return 0;
             } else {
                 inputs.emplace_back(argv[i]);
@@ -88,7 +88,7 @@ int slate::main_mp4join(int argc, char** argv) noexcept
             return 2;
         }
     }
-    
+
     if (output.empty()) {
         output = inputs.front();
         output.replace_filename(output.stem().concat("_joined") += (output.extension()));
@@ -105,7 +105,7 @@ int slate::main_mp4join(int argc, char** argv) noexcept
                 return 0;
             }
         } else { // can't ask, refuse to proceed
-            std::println("Refusing to overwrite existing output file {}.", output_str);
+            std::println(stderr, "Refusing to overwrite existing output file {}.", output_str);
             return 1;
         }
     }
@@ -142,6 +142,7 @@ int slate::main_mp4join(int argc, char** argv) noexcept
         }
         // Clear the progress line
         std::fputs("\x1b[2K\r", stdout);
+        std::fputs("\x1b[2K\r", stderr);
     }
 
     worker.join();
@@ -152,13 +153,13 @@ int slate::main_mp4join(int argc, char** argv) noexcept
         std::println("Merge done: {}", output_str);
         break;
     case(InvalidInput):
-        std::println("\x1b[1;31mError:\x1b[0m Invalid input file.");
+        std::println(stderr, "\x1b[1;31mError:\x1b[0m Invalid input file.");
         break;
     case(IoError):
-        std::println("\x1b[1;31mError:\x1b[0m Could not open file.");
+        std::println(stderr, "\x1b[1;31mError:\x1b[0m Could not open file.");
         break;
     case(InternalError):
-        std::println("\x1b[1;31mError:\x1b[0m Internal merge error.");
+        std::println(stderr, "\x1b[1;31mError:\x1b[0m Internal merge error.");
         break;
     }
 
