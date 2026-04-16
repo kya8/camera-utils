@@ -33,6 +33,10 @@ public:
     [[nodiscard]] OffsetType get_length() const noexcept;
     [[nodiscard]] auto get_handle() const noexcept { return fp; }
 
+    // FIXME:
+    // read/write should return bytes return. Partial R/W shuoldn't be considered an error.
+    // Use standard system_error.
+
     void read(void* buf, std::size_t n)
     {
         assert(is_open());
