@@ -2,13 +2,14 @@
 #define MP4_MERGE_HPP_C328A04A_1474_4AEB_A13A_C2AFFF31804A
 
 #include "slate/export.h"
+#include <span>
 
 namespace slate::mp4 {
 
 enum class MergeResult {
     Success = 0,
     InvalidInput, // Input files do not look like valid MP4 files.
-                  // This is returned by an initial shallow check. 
+                  // This is returned by an initial shallow check.
     IoError,      // An I/O error occurred.
     InternalError // An internal error occurred.
                   // This is mostly likely caused by bad/invalid input files,
@@ -17,7 +18,7 @@ enum class MergeResult {
 
 struct MergeProgCb {
     void(*cb)(void*, int) = nullptr;
-    void* data;
+    void* data = nullptr;
 
     operator bool() const noexcept {
         return cb != nullptr;
@@ -31,7 +32,7 @@ struct MergeProgCb {
 /**
  * Merge split/chaptered MP4 video files.
  * The input files are assumed to be in the correct order and have identical configurations (e.g., resolution, codec, etc.).
- * 
+ *
  * @param[in] nb_input Number of input files
  * @param[in] input_files Array of input file paths. Each path is a null-terminated string, in platform-native narrow encoding.
  * @param[in] output_file Output file path. Follows the same encoding rules as input files.
@@ -40,7 +41,7 @@ struct MergeProgCb {
  *
  * @return MergeResult indicating the result of the operation.
  */
-SLATE_EXPORT MergeResult merge_mp4(int nb_input, const char* const* input_files, const char* output_file, MergeProgCb prog_cb = {}) noexcept;
+SLATE_EXPORT MergeResult merge_mp4(std::span<const char* const> input_files, const char* output_file, MergeProgCb prog_cb = {}) noexcept;
 
 } // namespace slate::mp4
 

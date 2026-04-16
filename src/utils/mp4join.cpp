@@ -121,7 +121,7 @@ int slate::main_mp4join(int argc, char** argv) noexcept
     };
     std::thread worker {
         [&] {
-            ret = merge_mp4(static_cast<int>(inputs.size()), inputs.data(), output_str.c_str(), {prog_fn, &prog});
+            ret = merge_mp4(inputs, output_str.c_str(), {prog_fn, &prog});
             done.store(true, std::memory_order_release);
         }
     };

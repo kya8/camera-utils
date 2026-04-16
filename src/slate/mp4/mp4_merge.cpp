@@ -6,8 +6,8 @@
 #include <vector>
 #include <optional>
 #include <cassert>
+#include <ranges>
 #include "helper_templates.hpp"
-#include "range.hpp"
 #include "slate/streams/BinaryStream.hpp"
 
 using std::uint8_t, std::uint32_t, std::uint64_t, std::int64_t;
@@ -334,7 +334,7 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
                 mdat_size_sum += mdat[1];
             }
             std::uint64_t mdat_size_copied = 0;
-            for (const auto file_id : range::make_index(files.size())) {
+            for (const auto file_id : std::views::iota(0uz, files.size())) {
                 auto& f = files[file_id];
                 const auto& [data_offset, data_size] = info.mdat_position.at(file_id);
                 f.seek(data_offset);
@@ -481,14 +481,18 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
 } // namespace
 
 MergeResult
-merge_mp4(int nb_input, const char* const* input_files, const char* output_file, const MergeProgCb prog_cb) noexcept try
+merge_mp4(std::span<const char* const> input_files, const char* output_file, const MergeProgCb prog_cb) noexcept try
 {
-    if (nb_input < 2) return MergeResult::InvalidInput; // Require at-least 2 input files.
+    if (input_files.size() < 2) {
+        return MergeResult::InvalidInput; // Requires at-least 2 input files.
+    }
 
     // Open all input files for read.
-    std::vector<Mp4Stream> input_streams(nb_input);
-    for (auto i = 0; i < nb_input; ++i) {
-        if (!input_streams[i].open(input_files[i])) return MergeResult::IoError;
+    std::vector<Mp4Stream> input_streams(input_files.size());
+    for (const auto& [file, stream] : std::views::zip(input_files, input_streams)) {
+        if (!stream.open(file)) {
+            return MergeResult::IoError;
+        }
     }
     // Verify input files.
     for (auto& file : input_streams) {
@@ -500,7 +504,7 @@ merge_mp4(int nb_input, const char* const* input_files, const char* output_file,
 
     const auto info = std::make_unique<MergeInfo>();
 
-    for (const auto i : range::make_index(input_streams.size())) {
+    for (const auto i : std::views::iota(0uz, input_streams.size())) {
         auto& file = input_streams[i];
         // Get mdat info
         // should not throw, since we've checked for mdat.
