@@ -28,7 +28,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options("$<$<AND:$<NOT:$<CXX_COMPILER_ID:MSVC>>,$<CONFIG:Release>>:-ffile-prefix-map=${CMAKE_CURRENT_SOURCE_DIR}=.>")
 
 # Set source encoding to UTF-8
-#add_compile_options("$<IF:$<CXX_COMPILER_ID:MSVC>,/source-charset:utf-8,-finput-charset=utf-8>")
+add_compile_options("$<IF:$<CXX_COMPILER_ID:MSVC>,/source-charset:utf-8,-finput-charset=utf-8>")
 
 # Optimized x86-64 build
 if(SLATE_OPTIMIZED_X86_64 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
