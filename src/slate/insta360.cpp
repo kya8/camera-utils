@@ -1,7 +1,7 @@
 #include "detectors.hpp"
 #include <cstdint>
 #include <vector>
-#include "loupe/insta360_metadata.pb.h"
+#include "insta360_metadata.pb.h"
 #include "helper_templates.hpp"
 #include <cmath>
 #include <map>
@@ -64,7 +64,7 @@ parse_offset_string(std::string_view offset)
 } /* unnamed namespace */
 
 
-namespace slate::loupe {
+namespace slate {
 
 namespace {
 
@@ -367,4 +367,4 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
     return false;
 }
 
-} // namespace slate::loupe
+} // namespace slate

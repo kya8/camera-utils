@@ -1,0 +1,10 @@
+#ifndef FWD_HPP_D3C04782_BCC6_450A_8900_692209E1CCFE
+#define FWD_HPP_D3C04782_BCC6_450A_8900_692209E1CCFE
+
+namespace slate {
+
+struct CameraInfo;
+
+} // namespace slate
+
+#endif /* FWD_HPP_D3C04782_BCC6_450A_8900_692209E1CCFE */

@@ -4,7 +4,7 @@
 #include <GPMF_parser.h>
 #include <cstddef>
 
-namespace slate::loupe {
+namespace slate {
 
 #if 0
 // Could use IIFE
@@ -80,4 +80,4 @@ private:
 
 #endif /* GPMF_HELPER_HPP_C6C4D424_779A_4F4C_93C7_BA4B6CCCCF08 */
 
-} // namespace slate::loupe
+} // namespace slate

@@ -9,7 +9,7 @@
 
 using namespace slate::mp4;
 
-namespace slate::loupe {
+namespace slate {
 
 bool
 detect_gopro(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept
@@ -153,4 +153,4 @@ detect_gopro(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept
     return true;
 }
 
-} // namespace slate::loupe
+} // namespace slate

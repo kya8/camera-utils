@@ -8,7 +8,7 @@
 #include <cstdint>
 
 // Commonly used data types for metadata.
-namespace slate::loupe::types {
+namespace slate::types {
 
 using String      = std::string;
 using Int         = std::int64_t;
@@ -39,6 +39,6 @@ using TimedQuaternionVec = std::vector<Tuple5d>;
 using GPSDataEntry = std::tuple<bool, double, double, double, double, double, double>; // is_acquired, timestamp, lat, lon, altitude, speed, track
 using GPSDataVec   = std::vector<GPSDataEntry>;
 
-} // namespace slate::loupe::types
+} // namespace slate::types
 
 #endif /* VALUE_TYPES_HPP_D396FF12_6599_4802_B17A_B0D3746A6FCB */

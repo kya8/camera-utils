@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <variant>
 #include <vector>
-#ifdef SLATE_LOUPE_ENABLE_ANY
+#ifdef SLATE_ENABLE_ANY
 #include <any>
 #endif
 #include <utility>
@@ -19,7 +19,7 @@
 #include <memory> // addressof
 #include "slate/export.h"
 
-namespace slate::loupe {
+namespace slate {
 
 // Well-known group id.
 enum class GroupId {
@@ -183,43 +183,15 @@ struct VarMap : Map {
 // The actual variant type.
 // The Array and VarMap types are recursive, to support arbitarily nested heterogeneous data structures.
 // Tuples (static arrays) and vectors are for large homogeneous data, to allow for more efficient storage and processing.
-using Variant = detail::unique_variant_t<types::String,
-                                         types::Bool,
-                                         types::Int,
-                                         types::UInt,
-                                         types::Double,
-                                         types::VecD,
-                                         types::VecI,
-                                         types::RawBytes,
-
-                                         types::GyroVec,
-                                         types::AccVec,
-                                         types::ExposureVec,
-                                         types::QuaternionVec,
-                                         types::TimedQuaternionVec,
-                                         types::GPSDataVec,
-
-                                         //types::Tuple2d,
-                                         //types::Tuple3d,
-                                         //types::Tuple4d,
-                                         //types::Tuple5d,
-                                         std::vector<types::Tuple2d>,
-                                         std::vector<types::Tuple3d>,
-                                         std::vector<types::Tuple4d>,
-                                         std::vector<types::Tuple5d>,
-
-                                         std::vector<types::Array2d>,
-                                         std::vector<types::Array3d>,
-                                         std::vector<types::Array4d>,
-                                         std::vector<types::Array5d>
-#ifdef SLATE_LOUPE_ENABLE_ANY
-                                         ,
-                                         std::any
+using Variant = detail::unique_variant_t<types::String, types::Bool, types::Int, types::UInt, types::Double, types::VecD, types::VecI, types::RawBytes,
+                                         types::GyroVec, types::AccVec, types::ExposureVec, types::QuaternionVec, types::TimedQuaternionVec, types::GPSDataVec,
+                                         //types::Tuple2d, types::Tuple3d, types::Tuple4d, types::Tuple5d,
+                                         std::vector<types::Tuple2d>, std::vector<types::Tuple3d>, std::vector<types::Tuple4d>, std::vector<types::Tuple5d>,
+                                         std::vector<types::Array2d>, std::vector<types::Array3d>, std::vector<types::Array4d>, std::vector<types::Array5d>,
+#ifdef SLATE_ENABLE_ANY
+                                         std::any,
 #endif
-                                         ,
-                                         Array,
-                                         VarMap
-                                         >;
+                                         Array, VarMap>;
 
 struct Value: Variant {
     using Variant::Variant;   // inherit constructors
@@ -391,6 +363,6 @@ T& get_unsafe(std::variant<Ts...>& var) {
     return const_cast<T&>(get_unsafe<T>(std::as_const(var)));
 }
 
-} // namespace slate::loupe
+} // namespace slate
 
 #endif /* VARMAP_HPP_E5E2828D_2421_4F81_B079_A3D97AF2F7C2 */

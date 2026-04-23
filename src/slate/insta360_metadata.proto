@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package slate.loupe;
+package slate;
 
 message Insta360Metadata {
     optional string serial_number = 1;

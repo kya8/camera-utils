@@ -2,9 +2,9 @@
 #include <filesystem>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-#include <slate/loupe/loupe.hpp>
-#include <slate/loupe/extra/insta360_params.hpp>
-#include <slate/loupe/extra/insta360_tf.hpp>
+#include <slate/detect.hpp>
+#include <slate/extra/insta360_params.hpp>
+#include <slate/extra/insta360_tf.hpp>
 #include <print>
 #include <cstdio>
 #include <fstream>
@@ -288,7 +288,7 @@ struct Cfg {
         return !err_flag;
     }
 
-    bool process_dir(int lens_id, const slate::loupe::insta360::Params& params, auto& pool) noexcept try
+    bool process_dir(int lens_id, const slate::insta360::Params& params, auto& pool) noexcept try
     {
         if (mode) lens_id = 0;
         const auto& lens = params.lens[lens_id];
@@ -476,7 +476,7 @@ struct Cfg {
             return 1;
         }
 
-        using namespace slate::loupe;
+        using namespace slate;
 
         insta360::Params params;
         const auto cam_info = detect(video_file.c_str(), true);

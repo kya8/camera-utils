@@ -1,8 +1,8 @@
-#include <slate/loupe/varmap.hpp>
+#include <slate/varmap.hpp>
 #include <sstream>
 #include "helper_templates.hpp"
 
-namespace slate::loupe {
+namespace slate {
 
 std::string_view
 to_string(GroupId id) noexcept
@@ -172,7 +172,7 @@ public:
         return "Empty data";
     }
 
-#ifdef SLATE_LOUPE_ENABLE_ANY
+#ifdef SLATE_ENABLE_ANY
     Ret operator()(const std::any&) const
     {
         return "Any";
@@ -260,4 +260,4 @@ std::ostream& operator<<(std::ostream& os, const Value& val)
     return os;
 }
 
-} // namespace slate::loupe
+} // namespace slate

@@ -1,5 +1,5 @@
-#include <slate/loupe/extra/insta360_tf.hpp>
-#include <slate/loupe/loupe.hpp>
+#include <slate/extra/insta360_tf.hpp>
+#include <slate/detect.hpp>
 #include <Eigen/Geometry>
 #include <numbers>
 
@@ -7,7 +7,7 @@ using namespace std::numbers;
 
 static constexpr double d2r = pi / 180.0;
 
-namespace slate::loupe {
+namespace slate {
 
 const Eigen::Matrix3d*
 insta360::get_gyro_to_body_transform(const CameraInfo& info) noexcept
@@ -85,4 +85,4 @@ insta360::get_T01(const double* offset_v3, int len) noexcept
     return Eigen::Vector3d{offset_v3[28], offset_v3[29], offset_v3[30]};
 }
 
-} // namespace slate::loupe
+} // namespace slate

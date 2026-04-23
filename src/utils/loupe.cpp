@@ -1,5 +1,5 @@
 #include "slate_utils.hpp"
-#include <slate/loupe/loupe.hpp>
+#include <slate/detect.hpp>
 #include <print>
 #include <ostream>
 #include "timer.hpp"
@@ -14,7 +14,7 @@
 #include <iostream>
 #include <ranges>
 
-using namespace slate::loupe;
+using namespace slate;
 
 namespace {
 

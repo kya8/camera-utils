@@ -1,11 +1,11 @@
-#include <slate/loupe/loupe.hpp>
+#include <slate/detect.hpp>
 #include "detectors.hpp"
 #include <sstream>
 #include "slate/mp4/extract_video_info.hpp"
 
 using namespace slate::mp4;
 
-namespace slate::loupe {
+namespace slate {
 
 std::optional<CameraInfo>
 detect(const char* video_file, bool metadata_only) noexcept
@@ -72,4 +72,4 @@ CameraInfo::describe() const noexcept
     return std::move(ret).str();
 }
 
-} // namespace slate::loupe
+} // namespace slate

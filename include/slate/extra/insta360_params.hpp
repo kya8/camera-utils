@@ -3,10 +3,10 @@
 
 #include <array>
 #include <cmath>
-#include <slate/loupe/loupe_fwd.hpp>
+#include <slate/fwd.hpp>
 #include "slate/export.h"
 
-namespace slate::loupe::insta360 {
+namespace slate::insta360 {
 
 struct Params {
     struct Lens {
@@ -47,6 +47,6 @@ Params::Lens::project_point(double x, double y, double z) const noexcept
 
 SLATE_EXPORT bool get_params(const CameraInfo& info, Params& out, bool with_crop = true) noexcept;
 
-} // namespace slate::loupe::insta360
+} // namespace slate::insta360
 
 #endif /* INSTA360_PARAMS_HPP_B632C79B_4329_4935_8CD6_E130AB7F0CF5 */

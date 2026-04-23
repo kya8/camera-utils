@@ -1,9 +1,9 @@
-#include <slate/loupe/extra/insta360_params.hpp>
-#include <slate/loupe/loupe.hpp>
+#include <slate/extra/insta360_params.hpp>
+#include <slate/detect.hpp>
 #include "tuple_utils.hpp"
 #include <cassert>
 
-namespace slate::loupe::insta360 {
+namespace slate::insta360 {
 
 bool get_params(const CameraInfo& info, Params& out, bool with_crop) noexcept
 {
@@ -11,7 +11,7 @@ bool get_params(const CameraInfo& info, Params& out, bool with_crop) noexcept
         return false;
 
     const auto& map = info.extras;
-    using namespace slate::loupe::types;
+    using namespace slate::types;
 
     try {
         out.width  = (int)map.get_ex<Int>(GroupId::VideoInfo, KeyId::Width);
@@ -61,4 +61,4 @@ bool get_params(const CameraInfo& info, Params& out, bool with_crop) noexcept
     return true;
 }
 
-} // namespace slate::loupe::insta360
+} // namespace slate::insta360
