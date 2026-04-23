@@ -1,6 +1,8 @@
 #ifndef VARMAP_HPP_E5E2828D_2421_4F81_B079_A3D97AF2F7C2
 #define VARMAP_HPP_E5E2828D_2421_4F81_B079_A3D97AF2F7C2
 
+#include "id.hpp"
+#include "detail/variant.hpp"
 #include "value_types.hpp"
 #include <map>
 #include <stdexcept>     // std::out_of_range
@@ -15,91 +17,10 @@
 #include <utility>
 #include <compare>
 #include <ostream>
-#include <cassert>
 #include <memory> // addressof
 #include "slate/export.h"
 
 namespace slate {
-
-// Well-known group id.
-enum class GroupId {
-    NormalizedMetadata, // Holds well-known metadata represented by KeyId.
-    Metadata,
-    SensorData,
-    ProcessedData,
-    VideoInfo,
-    Other,
-    Max_GroupId // sentinel
-};
-
-// Well-know key tag for commonly used types of metadata.
-enum class KeyId {
-    CameraModel,
-    SubModel,
-    SerialNumber,
-    LensType,
-    FirmwareVersion,
-    StabilizationMode,
-    HasStabilization,
-    CameraRotation,
-    LensParams,
-
-    Width,
-    Height,
-    FPS,
-    Duration,
-    IsCFR,
-    FrameCount,
-    DisplayRotation,
-    VideoTrackIds,
-
-    GyroData,
-    AccData,
-    ExposureData,
-    CameraQuaternionData,
-    TimedCameraQuaternionData,
-    TimelapseTimestamp,
-    GpsData,
-    Max_KeyId // sentinel
-};
-
-/**
- * Get a informative string of the given GroupId.
- */
-SLATE_EXPORT std::string_view to_string(GroupId id) noexcept;
-/**
- * Get a informative string of the given KeyId.
- */
-SLATE_EXPORT std::string_view to_string(KeyId id) noexcept;
-
-namespace detail {
-
-// Append types while skipping duplicates.
-template <typename T, typename...>
-struct append_unique_types { // all non-unique types will eventually inherit from this
-    using type = T;
-};
-template <template<typename...> typename TMPL, typename ...Ts, typename U, typename ...Us>
-struct append_unique_types<TMPL<Ts...>, U, Us...> : std::conditional_t<(std::disjunction_v<std::is_same<U, Ts>...>),
-                                                                append_unique_types<TMPL<Ts...>, Us...>,
-                                                                append_unique_types<TMPL<Ts..., U>, Us...>>
-{};
-
-template <typename ...Ts>
-using unique_variant_t = typename append_unique_types<std::variant<std::monostate>, Ts...>::type;
-
-// Helper to get the index of a type in a parameter pack.
-template<typename T, typename T0, typename ...Ts>
-requires std::is_same_v<T, T0> || (std::is_same_v<T, Ts>||...)
-constexpr int get_index() {
-    if constexpr (std::is_same_v<T, T0>) {
-        return 0;
-    } else {
-        return 1 + get_index<T, Ts...>();
-    }
-}
-
-} /* namespace detail */
 
 // A recursive variant type that can hold any of the supported types,
 // including nested Map and Array that contain the variant itself.
@@ -343,25 +264,6 @@ SLATE_EXPORT std::ostream& operator<<(std::ostream& os, const VarMap& map);
 SLATE_EXPORT std::ostream& operator<<(std::ostream& os, const Value& val);
 
 // TODO: Output Value/VarMap to std::FILE*
-
-// Unsafe getter for std::variant.
-template<typename T, typename ...Ts>
-requires (std::is_same_v<T, Ts> || ...)
-const T& get_unsafe(const std::variant<Ts...>& var) {
-    if (const auto p = std::get_if<T>(&var)) {
-        return *p;
-    } else {
-        assert(("Type mismatch in get_unsafe()", false));
-        std::unreachable();
-    }
-}
-
-// Unsafe getter for std::variant.
-template<typename T, typename ...Ts>
-requires (std::is_same_v<T, Ts> || ...)
-T& get_unsafe(std::variant<Ts...>& var) {
-    return const_cast<T&>(get_unsafe<T>(std::as_const(var)));
-}
 
 } // namespace slate
 
