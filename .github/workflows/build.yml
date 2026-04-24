@@ -79,8 +79,8 @@ jobs:
       if: steps.cache-restore-exports.outputs.cache-hit != 'true'
       run: |
         mkdir -p "${{ env.vcpkg_exports }}"
-        vcpkg install --triplet=${{ matrix.vcpkg_triplet }}
-        vcpkg export --triplet=${{ matrix.vcpkg_triplet }} --raw --output-dir="${{ env.vcpkg_exports }}" --output=deps
+        vcpkg install --triplet=${{ matrix.vcpkg_triplet }} --host-triplet=${{ matrix.vcpkg_triplet }}
+        vcpkg export --triplet=${{ matrix.vcpkg_triplet }} --host-triplet=${{ matrix.vcpkg_triplet }} --raw --output-dir="${{ env.vcpkg_exports }}" --output=deps
 
     - name: Save cache of vcpkg exports
       if: steps.cache-restore-exports.outputs.cache-hit != 'true'
@@ -98,6 +98,7 @@ jobs:
         -D CMAKE_TOOLCHAIN_FILE="${vcpkg_exports}/deps/scripts/buildsystems/vcpkg.cmake"
         -D VCPKG_MANIFEST_MODE=0
         -D VCPKG_TARGET_TRIPLET=${{ matrix.vcpkg_triplet }}
+        -D VCPKG_HOST_TRIPLET=${{ matrix.vcpkg_triplet }}
         ${{ matrix.cmake_extra_flags }}
 
     - name: Build and install
