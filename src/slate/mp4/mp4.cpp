@@ -42,7 +42,7 @@ Mp4Stream::AtomInfo Mp4Stream::parse_atom()
     info.header_size = 8;
     read_nums(size32, info.fourcc);
 
-    if (info.fourcc == fourcc("uuid")) throw unsupported_file("Extended type is not supported.");
+    if (info.fourcc == "uuid"_fc) throw unsupported_file("Extended type is not supported.");
 
     if (size32 == 1) {
         read_num(info.size);
@@ -121,7 +121,7 @@ bool Mp4Stream::verify() noexcept try
 
     const auto root_atoms = get_all_atoms(get_length());
     for (const auto& a : root_atoms) {
-        if (a.fourcc == fourcc("moov")) {
+        if (a.fourcc == "moov"_fc) {
             if (has_moov) {
                 err = true;
                 break;
@@ -137,4 +137,4 @@ bool Mp4Stream::verify() noexcept try
     return false;
 }
 
-} // namespace slate::mp4 
+} // namespace slate::mp4

@@ -1,7 +1,6 @@
 #ifndef FOURCC_HPP_B41F7CAE_9564_47EB_B9E3_0A8F343DE21D
 #define FOURCC_HPP_B41F7CAE_9564_47EB_B9E3_0A8F343DE21D
 
-#include <string>
 #include <cstdint>
 #include <cstddef>
 
@@ -9,6 +8,7 @@ namespace slate {
 
 using FourCC = std::uint32_t;
 
+#if 0
 template <std::size_t N>
 constexpr FourCC
 fourcc(const char(&s)[N]) noexcept
@@ -29,9 +29,6 @@ fourcc_str(std::uint32_t u) noexcept {
     };
 }
 
-inline namespace fourcc_literal {
-
-#if 0
 namespace detail {
 
 // Owning wrapper for converting a string literal
@@ -58,6 +55,8 @@ constexpr std::uint32_t operator""_fc() noexcept {
            static_cast<std::uint32_t>(Str.str[3]);
 }
 #endif
+
+inline namespace fourcc_literal {
 
 consteval FourCC operator""_fc(const char* s, std::size_t len)
 {
