@@ -40,9 +40,9 @@ public:
     {
         if (init_ok_) GPMF_Free(&stream_);
     }
-    auto get() const noexcept { return &stream_; }
-    auto get() noexcept { return &stream_; }
-    auto is_ok() const noexcept { return init_ok_; }
+    [[nodiscard]] auto get() const noexcept { return &stream_; }
+    [[nodiscard]] auto get() noexcept { return &stream_; }
+    [[nodiscard]] auto is_ok() const noexcept { return init_ok_; }
     operator bool() const noexcept { return is_ok(); }
 
     // Copy is disabled.
@@ -66,8 +66,8 @@ public:
     {
         if (init_ok_) GPMF_Free(&stream_);
     }
-    auto is_open() const noexcept { return init_ok_; }
-    auto get_stream() const noexcept { return &stream_; }
+    [[nodiscard]] auto is_open() const noexcept { return init_ok_; }
+    [[nodiscard]] auto get_stream() const noexcept { return &stream_; }
 
     // Copy is disabled.
     GpmfGuard(const GpmfGuard&) = delete;

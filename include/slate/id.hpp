@@ -51,11 +51,11 @@ enum class KeyId {
 /**
  * Get a informative string of the given GroupId.
  */
-SLATE_EXPORT std::string_view to_string(GroupId id) noexcept;
+SLATE_EXPORT [[nodiscard]] std::string_view to_string(GroupId id) noexcept;
 /**
  * Get a informative string of the given KeyId.
  */
-SLATE_EXPORT std::string_view to_string(KeyId id) noexcept;
+SLATE_EXPORT [[nodiscard]] std::string_view to_string(KeyId id) noexcept;
 
 } // namespace slate
 

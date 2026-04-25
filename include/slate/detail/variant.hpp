@@ -37,7 +37,7 @@ constexpr int get_index() {
 // Unsafe getter for std::variant.
 template<typename T, typename ...Ts>
 requires (std::is_same_v<T, Ts> || ...)
-const T& get_unsafe(const std::variant<Ts...>& var) {
+[[nodiscard]] const T& get_unsafe(const std::variant<Ts...>& var) {
     if (const auto p = std::get_if<T>(&var)) {
         return *p;
     } else {
@@ -49,7 +49,7 @@ const T& get_unsafe(const std::variant<Ts...>& var) {
 // Unsafe getter for std::variant.
 template<typename T, typename ...Ts>
 requires (std::is_same_v<T, Ts> || ...)
-T& get_unsafe(std::variant<Ts...>& var) {
+[[nodiscard]] T& get_unsafe(std::variant<Ts...>& var) {
     return const_cast<T&>(get_unsafe<T>(std::as_const(var)));
 }
 

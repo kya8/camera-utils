@@ -35,14 +35,15 @@ using Array = std::vector<Value>;
 template<typename K>
 concept KeyType = std::is_convertible_v<K, Key> || std::is_convertible_v<K, std::string_view>;
 
-struct VarMap : Map {
-    const Map& as_map() const & noexcept { return *this; }
-    Map& as_map() & noexcept { return *this; }
-    const Map&& as_map() const && noexcept { return std::move(*this); }
-    Map&& as_map() && noexcept { return std::move(*this); }
+class VarMap : public Map {
+public:
+    [[nodiscard]] const Map& as_map() const & noexcept { return *this; }
+    [[nodiscard]] Map& as_map() & noexcept { return *this; }
+    [[nodiscard]] const Map&& as_map() const && noexcept { return std::move(*this); }
+    [[nodiscard]] Map&& as_map() && noexcept { return std::move(*this); }
 
     template<typename Self, KeyType K, KeyType ...Ks>
-    auto get_value(this Self& map, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const Value*, Value*> {
+    [[nodiscard]] auto get_value(this Self& map, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const Value*, Value*> {
         const auto it = [&] {
             if constexpr (requires{ map.find(key); }) {
                 return map.find(key);
@@ -63,7 +64,7 @@ struct VarMap : Map {
     }
 
     template<typename Self, KeyType K, KeyType ...Ks>
-    auto&& get_value_ex(this Self&& map, const K& key, const Ks& ...keys) {
+    [[nodiscard]] auto&& get_value_ex(this Self&& map, const K& key, const Ks& ...keys) {
         const auto it = [&] {
             if constexpr (requires{ map.find(key); }) {
                 return map.find(key);
@@ -84,7 +85,7 @@ struct VarMap : Map {
     }
 
     template<typename T, typename Self, KeyType K, KeyType ...Ks>
-    auto get(this Self& self, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*> {
+    [[nodiscard]] auto get(this Self& self, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*> {
         const auto p_val = self.get_value(key, keys...);
         if (!p_val)
             return nullptr;
@@ -92,7 +93,7 @@ struct VarMap : Map {
     }
 
     template<typename T, typename Self, KeyType K, KeyType ...Ks>
-    auto&& get_ex(this Self&& self, const K& key, const Ks& ...keys) {
+    [[nodiscard]] auto&& get_ex(this Self&& self, const K& key, const Ks& ...keys) {
         auto& val = self.get_value_ex(key, keys...);
         const auto p = std::get_if<T>(&val);
         if (!p)
@@ -118,10 +119,10 @@ struct Value: Variant {
     using Variant::Variant;   // inherit constructors
     using Variant::operator=; // inherit assignment operators
 
-    const Variant& as_variant() const & noexcept { return *this; }
-    Variant& as_variant() & noexcept { return *this; }
-    const Variant&& as_variant() const && noexcept { return std::move(*this); }
-    Variant&& as_variant() && noexcept { return std::move(*this); }
+    [[nodiscard]] const Variant& as_variant() const & noexcept { return *this; }
+    [[nodiscard]] Variant& as_variant() & noexcept { return *this; }
+    [[nodiscard]] const Variant&& as_variant() const && noexcept { return std::move(*this); }
+    [[nodiscard]] Variant&& as_variant() && noexcept { return std::move(*this); }
 };
 
 // Allows comparing variant keys with string_view directly.
@@ -166,7 +167,7 @@ constexpr auto operator<=>(const std::variant<Ts...>& var, const T& rhs)
 }
 
 // An outer map that gives a group id for each VarMap, to allow better organization of the metadata.
-struct GroupedVarMap : std::map<GroupId, VarMap> {
+class GroupedVarMap : public std::map<GroupId, VarMap> {
 public:
     /**
      * Get a pointer to the value requested by group id and Key.
@@ -176,7 +177,7 @@ public:
      * @return A pointer to the requested data if found and of the correct type, or nullptr otherwise.
      */
     template<typename T, typename Self, typename K, typename ...Ks>
-    auto get(this Self& self, GroupId group, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*>{
+    [[nodiscard]] auto get(this Self& self, GroupId group, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*>{
         const auto it = self.find(group);
         if (it == self.end())
             return nullptr;
@@ -192,7 +193,7 @@ public:
      * @exception std::out_of_range if the group or key is not found, or the value type does not match.
      */
     template<typename T, typename Self, typename K, typename ...Ks>
-    auto&& get_ex(this Self&& self, GroupId group, const K& key, const Ks& ...keys) {
+    [[nodiscard]] auto&& get_ex(this Self&& self, GroupId group, const K& key, const Ks& ...keys) {
         // Unfortunately, std::map::at doesn't support heterogeneous lookup before C++26, so we have to check manually with find.
         const auto it = self.find(group);
         if (it == self.end())
@@ -209,7 +210,7 @@ public:
      * @return Reference to the requested value or the default value.
      */
     template<typename T, KeyType K, KeyType ...Ks>
-    const T& get_or(const T& default_val, GroupId group, const K& key, const Ks& ...keys) const noexcept {
+    [[nodiscard]] const T& get_or(const T& default_val, GroupId group, const K& key, const Ks& ...keys) const noexcept {
         const auto p = get<T>(group, key, keys...);
         if (!p) return default_val;
         return *p;
@@ -221,14 +222,14 @@ public:
      */
     template<typename T, KeyType K, KeyType ...Ks>
     requires (!std::is_reference_v<T>) // T&& must be rvalue ref, in case T is deduced
-    auto get_or(T&& default_val, GroupId group, const K& key, const Ks& ...keys) const noexcept {
+    [[nodiscard]] auto get_or(T&& default_val, GroupId group, const K& key, const Ks& ...keys) const noexcept {
         const auto p = get<T>(group, key, keys...);
         if (!p) return std::move(default_val);
         return *p;
     }
 
     template<typename Self>
-    auto get(this Self& self, GroupId group) noexcept -> std::conditional_t<std::is_const_v<Self>, const VarMap*, VarMap*> {
+    [[nodiscard]] auto get(this Self& self, GroupId group) noexcept -> std::conditional_t<std::is_const_v<Self>, const VarMap*, VarMap*> {
         const auto it = self.find(group);
         if (it == self.end()) {
             return nullptr;
@@ -237,7 +238,7 @@ public:
     }
 
     template<typename Self>
-    auto&& get_ex(this Self&& self, GroupId group) {
+    [[nodiscard]] auto&& get_ex(this Self&& self, GroupId group) {
         const auto it = self.find(group);
         if (it == self.end()) {
             throw std::out_of_range("GroupId not found");
@@ -252,13 +253,13 @@ public:
  * @param[in] max_vec_len The maximum number of scalars to include in the string representation for vectors.
  *                        0 means no limit.
  */
-SLATE_EXPORT std::string to_string(const Value& var, std::size_t max_vec_len = 50) noexcept;
+SLATE_EXPORT [[nodiscard]] std::string to_string(const Value& var, std::size_t max_vec_len = 50) noexcept;
 /**
  * Converts a Key to a string representation.
  * The returned string_view references a static string if the key is a KeyId.
  * If the key is a string, the returned string_view references the string stored in the key.
  */
-SLATE_EXPORT std::string_view to_string(const Key& key) noexcept;
+SLATE_EXPORT [[nodiscard]] std::string_view to_string(const Key& key) noexcept;
 
 SLATE_EXPORT std::ostream& operator<<(std::ostream& os, const VarMap& map);
 SLATE_EXPORT std::ostream& operator<<(std::ostream& os, const Value& val);
