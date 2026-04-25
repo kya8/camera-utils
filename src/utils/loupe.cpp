@@ -1,7 +1,7 @@
 #include "slate_utils.hpp"
 #include <slate/detect.hpp>
 #include <print>
-#include <ostream>
+#include <fstream>
 #include "timer.hpp"
 #include <cstring>
 #include <string>
@@ -33,6 +33,7 @@ Options:
  -p, --property <PROP>  For each input video, only display the specified property.
                         PROP must consist of a group name and at least one key name, separated by colons (:),
                         e.g., Group:Key1:Key2
+ -v, --verbose          Increase verbosity level.
  --                     Treat all following arguments as input file names, even if they start with '-'.
  -V, --version          Display version information and exit.
  -h, --help             Display this help message and exit.
@@ -106,6 +107,7 @@ int slate::main_loupe(int argc, char** argv) noexcept
     bool show_help = false;
     bool raw_output = false;
     const char* show_property = nullptr;
+    int verbosity = 0;
     {
         bool err_flag = 0;
         bool positional_only = false;
@@ -138,6 +140,8 @@ int slate::main_loupe(int argc, char** argv) noexcept
                 else {
                     err_flag = 1;
                 }
+            } else if (match(argv[i], "-v", "--verbose")) {
+                verbosity += 1;
             } else if (match(argv[i], "-h", "--help")) {
                 show_help = true;
                 break;
@@ -169,6 +173,7 @@ int slate::main_loupe(int argc, char** argv) noexcept
     util::Timer timer;
     const bool stdout_is_colorterm = sys::is_colorterm(stdout);
     bool first = true;
+    bool has_error = false;
     for (const auto& file : files) {
         timer.tic();
         const auto info = detect(file, metadata_only);
@@ -177,14 +182,18 @@ int slate::main_loupe(int argc, char** argv) noexcept
         if (!first)
             std::putchar('\n');
         first = false;
-        if (stdout_is_colorterm)
-            std::print("\033[1;32m{}\033[0m", file);
-        else
-            std::print("{}", file);
-        if (info)
-            std::print(": Done in {:.3f} ms\n", time_detect * 1e3);
-        else
+        if (verbosity > 0 || !info) {
+            if (stdout_is_colorterm)
+                std::print("\033[1;32m{}\033[0m", file);
+            else
+                std::print("{}", file);
+        }
+        if (!info) {
             std::print(": Failed to extract data, or input file is invalid.\n");
+            has_error = true;
+        }
+        else if (verbosity > 0)
+            std::print(": Done in {:.3f} ms\n", time_detect * 1e3);
 
         if (info) {
             if (show_property) {
@@ -192,6 +201,7 @@ int slate::main_loupe(int argc, char** argv) noexcept
                 // Display the property
                 if (!val) {
                     std::println("{}: Property not found!", show_property);
+                    has_error = true;
                 } else {
                     std::println("{}: {}", show_property, to_string(*val));
                 }
@@ -223,30 +233,44 @@ int slate::main_loupe(int argc, char** argv) noexcept
             if (dump_gyro) {
                 const auto gyro = info->extras.get<types::GyroVec>(GroupId::SensorData, KeyId::GyroData);
                 if (gyro) {
-                    std::ofstream ofs(std::string(file) + "_gyro.txt");
+                    const std::string filename = std::string(file) += "_gyro.txt";
+                    std::ofstream ofs(filename);
                     // ofs.precision(17);
                     if (ofs) {
                         std::println(ofs, "time, gyro_x, gyro_y, gyro_z");
                         for (const auto& entry : *gyro) {
                             std::println(ofs, "{:n}", entry); // std::format defaults to round-trip format for FP
                         }
+                        if (verbosity > 0) {
+                            std::println("Gyro data saved to {}", filename);
+                        }
                     }
+                } else {
+                    std::println(stderr, "Could not find gyro data.");
+                    has_error = true;
                 }
             }
             if (dump_quat) {
                 const auto quat = info->extras.get<types::QuaternionVec>(GroupId::SensorData, KeyId::CameraQuaternionData);
                 if (quat) {
-                    std::ofstream ofs(std::string(file) + "_quat.txt");
+                    const auto filename  = std::string(file) += "_quat.txt";
+                    std::ofstream ofs(filename);
                     if (ofs) {
                         std::println(ofs, "qx, qy, qz, qw");
                         for (const auto& entry : *quat) {
                             std::println(ofs, "{:n}", entry);
                         }
+                        if (verbosity > 0) {
+                            std::println("Quaternion data saved to {}", filename);
+                        }
                     }
+                } else {
+                    std::println(stderr, "Could not find quaternion data.");
+                    has_error = true;
                 }
             }
         }
     }
 
-    return 0;
+    return has_error? 1 : 0;
 }
