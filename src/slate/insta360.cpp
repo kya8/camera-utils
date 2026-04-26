@@ -229,7 +229,7 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
                     info.extras[GroupId::Metadata]["offset_v3"] = parse_offset_string(metadata.offset_v3());
                 }
 
-                const auto normalize_metadata = [&map = info.extras](const VarMap::key_type& key, KeyId key_normalized, GroupId from = GroupId::Metadata) {
+                const auto normalize_metadata = [&map = info.extras](const KeyType auto& key, KeyId key_normalized, GroupId from = GroupId::Metadata) {
                     const auto group = map.find(from);
                     if (group == map.cend()) return false;
                     const auto it = group->second.find(key);
