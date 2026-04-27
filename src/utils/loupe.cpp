@@ -66,8 +66,8 @@ const Value* find_value(const GroupedVarMap& gmap, std::string_view prop) noexce
     bool is_group = true;
     const VarMap* map = nullptr;
     const Value* val = nullptr;
-    for (const auto key : std::views::split(prop, std::string_view(":"))) {
-        const std::string_view sv(key);
+    for (const auto s : std::views::split(prop, std::string_view(":"))) {
+        const std::string_view sv(s);
         if (is_group) {
             if (const auto group = find_group(sv); group == GroupId::Max_GroupId) {
                 return nullptr;
@@ -93,6 +93,8 @@ const Value* find_value(const GroupedVarMap& gmap, std::string_view prop) noexce
 
     return val;
 }
+
+constexpr int max_verbosity = 4;
 
 } // namespace
 
@@ -141,7 +143,9 @@ int slate::main_loupe(int argc, char** argv) noexcept
                     err_flag = 1;
                 }
             } else if (match(argv[i], "-v", "--verbose")) {
-                verbosity += 1;
+                if (verbosity < max_verbosity) {
+                    verbosity += 1;
+                }
             } else if (match(argv[i], "-h", "--help")) {
                 show_help = true;
                 break;
