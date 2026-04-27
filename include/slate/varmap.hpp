@@ -31,9 +31,28 @@ using Key = std::variant<KeyId, std::string>;
 using Map = std::map<Key, Value, std::less<void>>; // std::less<void> for transparent comparison.
 using Array = std::vector<Value>;
 
+class VarMap;
+
+// The actual variant type.
+// The Array and VarMap types are recursive, to support arbitarily nested heterogeneous data structures.
+// Tuples (static arrays) and vectors are for large homogeneous data, to allow for more efficient storage and processing.
+using Variant = detail::unique_variant_t<types::String, types::Bool, types::Int, types::UInt, types::Double,
+                                         types::VecDouble, types::VecFloat, types::VecI32, types::VecI64, types::VecBytes,
+                                         types::GyroVec, types::AccVec, types::ExposureVec, types::QuaternionVec, types::TimedQuaternionVec, types::GPSDataVec,
+                                         std::vector<types::Tuple2d>, std::vector<types::Tuple3d>, std::vector<types::Tuple4d>, std::vector<types::Tuple5d>,
+                                         std::vector<types::Array2d>, std::vector<types::Array3d>, std::vector<types::Array4d>, std::vector<types::Array5d>,
+#ifdef SLATE_ENABLE_ANY
+                                         std::any,
+#endif
+                                         Array, VarMap>;
+
 // Requirement for looking up VarMap.
 template<typename K>
 concept KeyType = std::is_convertible_v<K, Key> || std::is_convertible_v<K, std::string_view>;
+
+// Type requirement for querying a value. It must be one of the types in Variant.
+template<typename T>
+concept ValueType = detail::is_one_of<T, Variant>;
 
 class VarMap : public Map {
 public:
@@ -84,7 +103,7 @@ public:
         }
     }
 
-    template<typename T, typename Self, KeyType K, KeyType ...Ks>
+    template<ValueType T, typename Self, KeyType K, KeyType ...Ks>
     [[nodiscard]] auto get(this Self& self, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*> {
         const auto p_val = self.get_value(key, keys...);
         if (!p_val)
@@ -92,7 +111,7 @@ public:
         return std::get_if<T>(p_val);
     }
 
-    template<typename T, typename Self, KeyType K, KeyType ...Ks>
+    template<ValueType T, typename Self, KeyType K, KeyType ...Ks>
     [[nodiscard]] auto&& get_ex(this Self&& self, const K& key, const Ks& ...keys) {
         auto& val = self.get_value_ex(key, keys...);
         const auto p = std::get_if<T>(&val);
@@ -101,19 +120,6 @@ public:
         return std::forward_like<Self>(*p);
     }
 };
-
-// The actual variant type.
-// The Array and VarMap types are recursive, to support arbitarily nested heterogeneous data structures.
-// Tuples (static arrays) and vectors are for large homogeneous data, to allow for more efficient storage and processing.
-using Variant = detail::unique_variant_t<types::String, types::Bool, types::Int, types::UInt, types::Double,
-                                         types::VecDouble, types::VecFloat, types::VecI32, types::VecI64, types::VecBytes,
-                                         types::GyroVec, types::AccVec, types::ExposureVec, types::QuaternionVec, types::TimedQuaternionVec, types::GPSDataVec,
-                                         std::vector<types::Tuple2d>, std::vector<types::Tuple3d>, std::vector<types::Tuple4d>, std::vector<types::Tuple5d>,
-                                         std::vector<types::Array2d>, std::vector<types::Array3d>, std::vector<types::Array4d>, std::vector<types::Array5d>,
-#ifdef SLATE_ENABLE_ANY
-                                         std::any,
-#endif
-                                         Array, VarMap>;
 
 struct Value: Variant {
     using Variant::Variant;   // inherit constructors
@@ -176,7 +182,7 @@ public:
      * @param key, keys Key to look up. If more than 1 key is provided, recurses into nested maps.
      * @return A pointer to the requested data if found and of the correct type, or nullptr otherwise.
      */
-    template<typename T, typename Self, typename K, typename ...Ks>
+    template<ValueType T, typename Self, KeyType K, KeyType ...Ks>
     [[nodiscard]] auto get(this Self& self, GroupId group, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*>{
         const auto it = self.find(group);
         if (it == self.end())
@@ -192,7 +198,7 @@ public:
      * @return Reference to the requested value.
      * @exception std::out_of_range if the group or key is not found, or the value type does not match.
      */
-    template<typename T, typename Self, typename K, typename ...Ks>
+    template<ValueType T, typename Self, KeyType K, KeyType ...Ks>
     [[nodiscard]] auto&& get_ex(this Self&& self, GroupId group, const K& key, const Ks& ...keys) {
         // Unfortunately, std::map::at doesn't support heterogeneous lookup before C++26, so we have to check manually with find.
         const auto it = self.find(group);
@@ -209,7 +215,7 @@ public:
      * @param default_val The default value to return if the requested value is not found or has a different type.
      * @return Reference to the requested value or the default value.
      */
-    template<typename T, KeyType K, KeyType ...Ks>
+    template<ValueType T, KeyType K, KeyType ...Ks>
     [[nodiscard]] const T& get_or(const T& default_val, GroupId group, const K& key, const Ks& ...keys) const noexcept {
         const auto p = get<T>(group, key, keys...);
         if (!p) return default_val;
@@ -220,7 +226,7 @@ public:
      * Overload for temporary default value.
      * Returns by value, so be careful with copying large data from the map.
      */
-    template<typename T, KeyType K, KeyType ...Ks>
+    template<ValueType T, KeyType K, KeyType ...Ks>
     requires (!std::is_reference_v<T>) // T&& must be rvalue ref, in case T is deduced
     [[nodiscard]] auto get_or(T&& default_val, GroupId group, const K& key, const Ks& ...keys) const noexcept {
         const auto p = get<T>(group, key, keys...);

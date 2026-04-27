@@ -34,6 +34,13 @@ constexpr int get_index() {
     }
 }
 
+// Check if type is one of the type template arguments of a class template instantiation.
+template<typename T, typename U>
+constexpr bool is_one_of = false;
+
+template<typename T, template<typename...> typename TMPL, typename ...Ts>
+constexpr bool is_one_of<T, TMPL<Ts...>> = (std::is_same_v<T, Ts>||...);
+
 // Unsafe getter for std::variant.
 template<typename T, typename ...Ts>
 requires (std::is_same_v<T, Ts> || ...)
