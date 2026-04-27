@@ -488,7 +488,7 @@ struct Cfg {
         if (mode && !has_tf) {
             // Get Insta360 builtin tf
             has_tf = [&] {
-                const auto offset_v3 = cam_info->extras.get<types::VecD>(GroupId::Metadata, "offset_v3");
+                const auto offset_v3 = cam_info->extras.get<types::VecDouble>(GroupId::Metadata, "offset_v3");
                 if (!offset_v3)
                     return false;
                 const auto r_b0 = insta360::get_R0(offset_v3->data(), static_cast<int>(offset_v3->size()));

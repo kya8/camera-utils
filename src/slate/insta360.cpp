@@ -115,7 +115,7 @@ void insert_protobuf_metadata(VarMap& map,
                 map[field_name] = refl->GetString(message, field_desc);
             } else if (type == T_::TYPE_BYTES) {
                 const auto str = refl->GetString(message, field_desc);
-                types::RawBytes vec(str.cbegin(), str.cend());
+                types::VecBytes vec(str.cbegin(), str.cend());
                 map[field_name] = std::move(vec);
             }
             break;
@@ -247,8 +247,8 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
 
                 // Sub-model
                 if (info.extras.get_or<std::string>("", GroupId::NormalizedMetadata, KeyId::CameraModel) == "Insta360 OneRS") {
-                    const auto offset_v3 = info.extras.get<types::VecD>(GroupId::Metadata, "offset_v3");
-                    const auto offset = info.extras.get<types::VecD>(GroupId::Metadata, "offset");
+                    const auto offset_v3 = info.extras.get<types::VecDouble>(GroupId::Metadata, "offset_v3");
+                    const auto offset = info.extras.get<types::VecDouble>(GroupId::Metadata, "offset");
                     if (offset_v3 && offset_v3->size() == 40 && int((*offset_v3)[19]) == 62) {
                         info.extras[GroupId::NormalizedMetadata][KeyId::SubModel] = std::string("1-Inch 360 Edition");
                     }
@@ -328,7 +328,7 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
         }
         else if ((id == RecordType::TimelapseTimestamp ) && format == RecordFormat::Binary) {
             const auto count = size / 8; // u64 timestamp
-            types::VecD ts;
+            types::VecDouble ts;
             for (auto i = 0u; i < count; ++i) {
                 std::uint64_t timestamp;
                 file.read_num<Endian::LE>(timestamp);

@@ -75,7 +75,7 @@ detect_gopro(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept
     if (metadata_only) return true;
 
     // insert global udta/GPMF box data
-    static_assert(std::is_same_v<decltype(data), types::RawBytes>);
+    static_assert(std::is_same_v<decltype(data), types::VecBytes>);
     info.extras[GroupId::Other]["GPMF"] = std::move(data);
     }
 

@@ -18,7 +18,7 @@ bool get_params(const CameraInfo& info, Params& out, bool with_crop) noexcept
         out.height = (int)map.get_ex<Int>(GroupId::VideoInfo, KeyId::Height);
         out.selfie = map.get_or<Bool>(false, GroupId::Metadata, "is_selfie");
 
-        const auto& offset_v3 = map.get_ex<VecD>(GroupId::Metadata, "offset_v3");
+        const auto& offset_v3 = map.get_ex<VecDouble>(GroupId::Metadata, "offset_v3");
         if (offset_v3.size() < 20)
             return false;
         out.nb_lens = offset_v3.size() >= 39? 2 : 1;
