@@ -3,11 +3,11 @@
 
 #include "mp4.hpp"
 #include "slate/video_info.hpp"
-#include <vector>
+#include <slate/value_types.hpp>
 
 namespace slate::mp4 {
 
-bool extract_video_info(Mp4Stream& file, VideoInfo& out, std::vector<int>* video_track_ids = nullptr) noexcept;
+bool extract_video_info(Mp4Stream& file, VideoInfo& out, types::VecI32* video_track_ids = nullptr) noexcept;
 
 } /* namespace slate::mp4 */
 

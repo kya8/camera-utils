@@ -30,7 +30,7 @@ seek_atom_recursive(Mp4Stream& file, std::initializer_list<std::uint32_t> fourcc
 } // namespace
 
 bool
-extract_video_info(Mp4Stream& file, VideoInfo& out, std::vector<int>* video_track_ids) noexcept try
+extract_video_info(Mp4Stream& file, VideoInfo& out, types::VecI32* video_track_ids) noexcept try
 {
     file.seek(0);
     const auto mvhd = seek_atom_recursive(file, {"moov"_fc, "mvhd"_fc}, file.get_length());
@@ -46,7 +46,7 @@ extract_video_info(Mp4Stream& file, VideoInfo& out, std::vector<int>* video_trac
     }();
 
     const auto tracks = get_tracks(file);
-    std::vector<int> video_track_indices;
+    types::VecI32 video_track_indices;
     for (const auto i : range::make_index(tracks.size())) {
         if (tracks[i].hdlr_type == "vide"_fc)
             video_track_indices.push_back(static_cast<int>(i));

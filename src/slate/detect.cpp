@@ -23,19 +23,20 @@ detect(const char* video_file, bool metadata_only) noexcept
     }();
 
     VideoInfo video_info{};
-    std::vector<int> video_track_ids;
+    types::VecI32 video_track_ids;
     const auto has_video_info = extract_video_info(file, video_info, &video_track_ids);
 
     if(!detect_success && !has_video_info) return {};
     if(has_video_info) {
-        result.extras[GroupId::VideoInfo][KeyId::Duration]         = video_info.duration;
-        result.extras[GroupId::VideoInfo][KeyId::Width]            = types::Int(video_info.width);
-        result.extras[GroupId::VideoInfo][KeyId::Height]           = types::Int(video_info.height);
-        result.extras[GroupId::VideoInfo][KeyId::DisplayRotation]  = types::Int(video_info.display_rotation);
-        result.extras[GroupId::VideoInfo][KeyId::FrameCount]       = types::Int(video_info.nb_frames);
-        result.extras[GroupId::VideoInfo][KeyId::FPS]              = video_info.fps;
-        result.extras[GroupId::VideoInfo][KeyId::IsCFR]            = video_info.is_cfr;
-        result.extras[GroupId::VideoInfo][KeyId::VideoTrackIds]    = std::move(video_track_ids);
+        auto& map = result.extras[GroupId::VideoInfo];
+        map[KeyId::Duration]         = video_info.duration;
+        map[KeyId::Width]            = types::Int(video_info.width);
+        map[KeyId::Height]           = types::Int(video_info.height);
+        map[KeyId::DisplayRotation]  = types::Int(video_info.display_rotation);
+        map[KeyId::FrameCount]       = types::Int(video_info.nb_frames);
+        map[KeyId::FPS]              = video_info.fps;
+        map[KeyId::IsCFR]            = video_info.is_cfr;
+        map[KeyId::VideoTrackIds]    = std::move(video_track_ids);
     }
 
     return result;
