@@ -14,11 +14,6 @@ detect_gopro(mp4::Mp4Stream& file, CameraInfo& info, bool metadata_only = false)
 bool
 detect_insta360(mp4::Mp4Stream& file, CameraInfo& info, bool metadata_only = false) noexcept;
 
-
-using DetectFuncType = decltype(&detect_gopro);
-constexpr DetectFuncType detect_functions[] {&detect_gopro, &detect_insta360};  // compile-time loop over enum specializations?
-constexpr auto nb_detect_functions = sizeof(detect_functions) / sizeof(*detect_functions);
-
 } // namespace slate
 
 
