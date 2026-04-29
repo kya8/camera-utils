@@ -16,11 +16,9 @@ detect(const char* video_file, bool metadata_only) noexcept
     }
 
     CameraInfo result{};
-    const auto detect_success = [&] {
-        if(detect_gopro   (file, result, metadata_only)) return true;
-        if(detect_insta360(file, result, metadata_only)) return true;
-        return false;
-    }();
+    const auto detect_success =
+        detect_gopro   (file, result, metadata_only)||
+        detect_insta360(file, result, metadata_only);
 
     VideoInfo video_info{};
     types::VecI32 video_track_ids;
