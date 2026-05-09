@@ -1,5 +1,5 @@
 #include <slate/extra/insta360_tf.hpp>
-#include <slate/detect.hpp>
+#include <slate/camera_info.hpp>
 #include <Eigen/Geometry>
 #include <numbers>
 

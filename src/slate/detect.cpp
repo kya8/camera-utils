@@ -3,38 +3,40 @@
 #include <sstream>
 #include "slate/mp4/extract_video_info.hpp"
 
-using namespace slate::mp4;
-
 namespace slate {
+
+using namespace mp4;
 
 std::optional<CameraInfo>
 detect(const char* video_file, bool metadata_only) noexcept
 {
     Mp4Stream file;
-    if(!file.open(video_file)) {
-        return {};
+    if (!file.open(video_file)) {
+        return std::nullopt;
     }
 
     CameraInfo result{};
     const auto detect_success =
-        detect_gopro   (file, result, metadata_only)||
+        detect_gopro   (file, result, metadata_only) ||
         detect_insta360(file, result, metadata_only);
 
     VideoInfo video_info{};
     types::VecI32 video_track_ids;
     const auto has_video_info = extract_video_info(file, video_info, &video_track_ids);
 
-    if(!detect_success && !has_video_info) return {};
-    if(has_video_info) {
-        auto& map = result.extras[GroupId::VideoInfo];
-        map[KeyId::Duration]         = video_info.duration;
-        map[KeyId::Width]            = types::Int(video_info.width);
-        map[KeyId::Height]           = types::Int(video_info.height);
-        map[KeyId::DisplayRotation]  = types::Int(video_info.display_rotation);
-        map[KeyId::FrameCount]       = types::Int(video_info.nb_frames);
-        map[KeyId::FPS]              = video_info.fps;
-        map[KeyId::IsCFR]            = video_info.is_cfr;
-        map[KeyId::VideoTrackIds]    = std::move(video_track_ids);
+    if (!detect_success && !has_video_info) {
+        return std::nullopt;
+    }
+    if (has_video_info) {
+        VarMap& map = result.extras[GroupId::VideoInfo];
+        map[KeyId::Duration]        = video_info.duration;
+        map[KeyId::Width]           = video_info.width;
+        map[KeyId::Height]          = video_info.height;
+        map[KeyId::DisplayRotation] = video_info.display_rotation;
+        map[KeyId::FrameCount]      = video_info.nb_frames;
+        map[KeyId::FPS]             = video_info.fps;
+        map[KeyId::IsCFR]           = video_info.is_cfr;
+        map[KeyId::VideoTrackIds]   = std::move(video_track_ids);
     }
 
     return result;
@@ -59,10 +61,10 @@ CameraInfo::describe() const noexcept
     std::ostringstream ret;
     ret << "Camera Vendor: " << to_string(vendor) << "; ";
 
-    const auto metadata = extras.find(GroupId::NormalizedMetadata);
-    if(metadata != extras.cend()) {
-        for (const auto& [key, val] : metadata->second) {
-            ret << to_string(key) << ": " << to_string(val) << "; ";
+    const auto metadata = extras.get(GroupId::NormalizedMetadata);
+    if (metadata) {
+        for (const auto& [key, val] : *metadata) {
+            ret << to_string(key) << ": " << val << "; ";
         }
     }
 

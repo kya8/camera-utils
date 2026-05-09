@@ -1,7 +1,7 @@
 #ifndef DETECTORS_HPP_A7EBA89B_4DF5_4E6E_AF1B_50B9D248BEAB
 #define DETECTORS_HPP_A7EBA89B_4DF5_4E6E_AF1B_50B9D248BEAB
 
-#include <slate/detect.hpp>
+#include <slate/camera_info.hpp>
 #include "slate/mp4/mp4.hpp"
 
 // All detectors should return true if the specified camera's signature is found. Otherwise, false is returned.

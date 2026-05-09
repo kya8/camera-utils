@@ -1,28 +1,11 @@
 #ifndef DETECT_HPP_BCD5DE1F_5C62_460F_95D1_D0A5D9B18F61
 #define DETECT_HPP_BCD5DE1F_5C62_460F_95D1_D0A5D9B18F61
 
-#include <string_view>
-#include <string>
+#include "camera_info.hpp"
 #include <optional>
-#include "varmap.hpp"
 #include "slate/export.h"
 
 namespace slate {
-
-enum class CameraVendor {
-    GoPro,
-    Insta360,
-    Unknown
-};
-
-SLATE_EXPORT [[nodiscard]] std::string_view to_string(CameraVendor type) noexcept;
-
-struct CameraInfo {
-    CameraVendor vendor = CameraVendor::Unknown;
-    GroupedVarMap extras;
-
-    SLATE_EXPORT [[nodiscard]] std::string describe() const noexcept;
-};
 
 SLATE_EXPORT [[nodiscard]] std::optional<CameraInfo> detect(const char* video_file, bool metadata_only = false) noexcept;
 

@@ -1,5 +1,5 @@
 #include <slate/extra/insta360_params.hpp>
-#include <slate/detect.hpp>
+#include <slate/camera_info.hpp>
 #include "tuple_utils.hpp"
 #include <cassert>
 
