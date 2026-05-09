@@ -26,7 +26,7 @@ class CursorCommon {
 protected:
     using Pointer = BytePointer<Mutable>;
 public:
-    CursorCommon(Pointer buf, std::ptrdiff_t len) noexcept : 
+    CursorCommon(Pointer buf, std::ptrdiff_t len) noexcept :
         begin_(buf), len_(len), cursor_(buf) {
         assert(buf != nullptr);
         assert(len >= 0);
@@ -35,6 +35,7 @@ public:
     [[nodiscard]] bool is_open() const noexcept { return this->begin_ != nullptr; }
     [[nodiscard]] auto data() const noexcept { return this->begin_; }
     [[nodiscard]] auto len() const noexcept { return this->len_; }
+    [[nodiscard]] OffsetType get_length() const noexcept { return len_; }
     static constexpr bool is_mutable = Mutable;
 
     [[nodiscard]] OffsetType tell() const noexcept { return cursor_ - begin_; }
