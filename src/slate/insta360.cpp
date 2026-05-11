@@ -1,12 +1,11 @@
 #include "detectors.hpp"
+#include "proto_util.hpp"
 #include <cstdint>
 #include <vector>
 #include "insta360_metadata.pb.h"
-#include "helper_templates.hpp"
 #include <cmath>
 #include <map>
 #include <utility>
-#include <format>
 #include <ranges>
 #include <charconv>
 #include <string_view>
@@ -48,7 +47,7 @@ enum RecordFormat : std::uint8_t {
 };
 
 std::vector<double>
-parse_offset_string(std::string_view offset)
+parse_offset_params(std::string_view offset)
 {
     std::vector<double> result;
     for (const auto s : std::views::split(offset, std::string_view("_"))) {
@@ -66,85 +65,8 @@ parse_offset_string(std::string_view offset)
 
 namespace slate {
 
-namespace {
-
-void insert_protobuf_metadata(VarMap& map,
-                              const google::protobuf::Message& message
-                              )
-{
-    const auto desc = message.GetDescriptor();
-    const auto refl = message.GetReflection();
-    for (auto i = 0; i < desc->field_count(); ++i) {
-        const auto field_desc = desc->field(i);
-        const auto field_name = std::string(field_desc->name());
-        const auto cpp_type = field_desc->cpp_type();
-        const auto type     = field_desc->type();
-        if (!field_desc->is_optional())
-            continue;
-        if (!refl->HasField(message, field_desc))
-            continue;
-        if (eq_one(field_name, "offset", "offset_v2", "offset_v3"))
-            continue;
-
-        switch(cpp_type) {
-        using T  = google::protobuf::FieldDescriptor::CppType;
-        using T_ = google::protobuf::FieldDescriptor::Type;
-        case(T::CPPTYPE_INT32):
-            map[field_name] = (types::Int)refl->GetInt32(message, field_desc);
-            break;
-        case(T::CPPTYPE_INT64):
-            map[field_name] = (types::Int)refl->GetInt64(message, field_desc);
-            break;
-        case(T::CPPTYPE_UINT32):
-            map[field_name] = (types::UInt)refl->GetUInt32(message, field_desc);
-            break;
-        case(T::CPPTYPE_UINT64):
-            map[field_name] = (types::UInt)refl->GetUInt64(message, field_desc);
-            break;
-        case(T::CPPTYPE_DOUBLE):
-            map[field_name] = refl->GetDouble(message, field_desc);
-            break;
-        case(T::CPPTYPE_FLOAT):
-            map[field_name] = refl->GetFloat(message, field_desc);
-            break;
-        case(T::CPPTYPE_BOOL):
-            map[field_name] = refl->GetBool(message, field_desc);
-            break;
-        case(T::CPPTYPE_STRING):
-            if (type == T_::TYPE_STRING) {
-                map[field_name] = refl->GetString(message, field_desc);
-            } else if (type == T_::TYPE_BYTES) {
-                const auto str = refl->GetString(message, field_desc);
-                types::VecBytes vec(str.cbegin(), str.cend());
-                map[field_name] = std::move(vec);
-            }
-            break;
-        case(T::CPPTYPE_ENUM):
-        {
-            const auto enum_desc = field_desc->enum_type();
-            const auto enum_num = refl->GetEnumValue(message, field_desc);
-            const auto enum_val_desc = enum_desc->FindValueByNumber(enum_num); // nullptr if num is invalid
-            std::string display_name = std::format("{} ({})", (enum_val_desc ? enum_val_desc->name() : "Unknown value"),  enum_num);
-            map[field_name] = std::move(display_name);
-            break;
-        }
-        case(T::CPPTYPE_MESSAGE):
-        {
-            const auto& sub_msg = refl->GetMessage(message, field_desc);
-            //const auto sub_msg_desc = field_desc->message_type();
-            auto& inner_map = map[field_name].as_variant().emplace<VarMap>();
-            insert_protobuf_metadata(inner_map, sub_msg);
-            break;
-        }
-        default:
-            break;
-        }
-    }
-}
-
-} // namespace
-
-// end of mp4 | data | 32(unknown padding) + 4(size of data) + 4(version) | 32(magic) | EOF
+// insv file format:
+// End of mp4 | data | 32(unknown padding) + 4(size of data) + 4(version) | 32(magic) | EOF
 
 bool
 detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept try
@@ -152,7 +74,9 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
     file.seek(-magic_len, SeekFrom::End);
     unsigned char buf[magic_len] {0};
     file.read(buf, magic_len);
-    if (std::memcmp(buf, magic, magic_len)) return false;
+    if (std::memcmp(buf, magic, magic_len) != 0) {
+        return false;
+    }
 
     file.seek(-magic_len-4-4, SeekFrom::End);
     std::uint32_t extra_size, _version;
@@ -188,7 +112,7 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
 
     auto iter_offsets = offsets.cbegin();
     const auto end_offsets = offsets.cend();
-    while (1) {
+    for (;;) {
         std::uint8_t format, id;
         std::uint32_t size;
 
@@ -214,27 +138,27 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
             std::vector<unsigned char> buf(size);
             file.read(buf.data(), buf.size());
             Insta360Metadata metadata;
-            if (metadata.ParseFromArray(buf.data(), (int)buf.size())) {
+            if (metadata.ParseFromArray(buf.data(), static_cast<int>(buf.size()))) {
+                auto& map = info.extras[GroupId::Metadata];
+                insert_metadata(map, metadata);
 
-                insert_protobuf_metadata(info.extras[GroupId::Metadata], metadata);
-
-                // ...
+                // Parse offset strings into arrays.
                 if (metadata.has_offset()) {
-                    info.extras[GroupId::Metadata]["offset"] = parse_offset_string(metadata.offset());
+                    map["offset"] = parse_offset_params(metadata.offset());
                 }
                 if (metadata.has_offset_v2()) {
-                    info.extras[GroupId::Metadata]["offset_v2"] = parse_offset_string(metadata.offset_v2());
+                    map["offset_v2"] = parse_offset_params(metadata.offset_v2());
                 }
                 if (metadata.has_offset_v3()) {
-                    info.extras[GroupId::Metadata]["offset_v3"] = parse_offset_string(metadata.offset_v3());
+                    map["offset_v3"] = parse_offset_params(metadata.offset_v3());
                 }
 
-                const auto normalize_metadata = [&map = info.extras](const KeyType auto& key, KeyId key_normalized, GroupId from = GroupId::Metadata) {
-                    const auto group = map.find(from);
-                    if (group == map.cend()) return false;
+                const auto normalize_metadata = [&gmap = info.extras](const KeyType auto& key, KeyId key_normalized, GroupId from = GroupId::Metadata) {
+                    const auto group = gmap.find(from);
+                    if (group == gmap.cend()) return false;
                     const auto it = group->second.find(key);
                     if (it == group->second.cend()) return false;
-                    map[GroupId::NormalizedMetadata][key_normalized] = std::move(it->second);
+                    gmap[GroupId::NormalizedMetadata][key_normalized] = std::move(it->second);
                     group->second.erase(it);
                     return true;
                 };
@@ -247,8 +171,8 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
 
                 // Sub-model
                 if (info.extras.get_or<std::string>("", GroupId::NormalizedMetadata, KeyId::CameraModel) == "Insta360 OneRS") {
-                    const auto offset_v3 = info.extras.get<types::VecDouble>(GroupId::Metadata, "offset_v3");
-                    const auto offset = info.extras.get<types::VecDouble>(GroupId::Metadata, "offset");
+                    const auto offset_v3 = map.get<types::VecDouble>("offset_v3");
+                    const auto offset = map.get<types::VecDouble>("offset");
                     if (offset_v3 && offset_v3->size() == 40 && int((*offset_v3)[19]) == 62) {
                         info.extras[GroupId::NormalizedMetadata][KeyId::SubModel] = std::string("1-Inch 360 Edition");
                     }
@@ -261,11 +185,16 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
                 has_metadata = true;
                 is_raw_gyro = metadata.has_is_raw_gyro()? metadata.is_raw_gyro() : false; // Older models may lack this field, default to false.
                 t_scale = is_raw_gyro? 1e-6 : 1e-3;
-                if (metadata.has_first_frame_timestamp()) first_frame_t = metadata.first_frame_timestamp() * t_scale;
-                else first_frame_t = 0.0;
+                if (metadata.has_first_frame_timestamp()) {
+                    first_frame_t = metadata.first_frame_timestamp() * t_scale;
+                } else {
+                    first_frame_t = 0.0;
+                }
             }
 
-            if (metadata_only) break;
+            if (metadata_only) {
+                break;
+            }
         }
         else if (id == RecordType::Gyro && format == RecordFormat::Binary) {
             // ranges are only relevant for raw format, where int16_min/max corresponds to -range/+range.
