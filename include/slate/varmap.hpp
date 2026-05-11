@@ -143,6 +143,17 @@ inline constexpr std::strong_ordering operator<=>(const Key& key, std::string_vi
     }, key);
 }
 
+// Equality comparison.
+inline constexpr bool operator==(const Key& key, std::string_view sv) noexcept {
+    return std::visit([&sv]<typename T>(const T& val) {
+        if constexpr (std::is_convertible_v<T, std::string_view>) {
+            return std::string_view(val) == sv; // Convert val to string_view to avoid recursion into this function.
+        } else {
+            return false;
+        }
+    }, key);
+}
+
 // constexpr std::strong_ordering operator<=>(const Key& key, KeyId id) noexcept {
 //     return std::visit([&]<typename T>(const T& val) {
 //         if constexpr (std::is_same_v<T, KeyId>) {
@@ -167,6 +178,21 @@ constexpr auto operator<=>(const std::variant<Ts...>& var, const T& rhs)
                 return val <=> rhs;
             } else {
                 return detail::get_index<V, Ts...>() <=> detail::get_index<T, Ts...>();
+            }
+        }
+    , var);
+}
+
+template<typename ...Ts, typename T>
+requires (std::is_same_v<T, Ts> || ...)
+constexpr auto operator==(const std::variant<Ts...>& var, const T& rhs)
+{
+    return std::visit(
+        [&rhs]<typename V>(const V& val) {
+            if constexpr (std::is_same_v<V, T>) {
+                return val == rhs;
+            } else {
+                return false;
             }
         }
     , var);
