@@ -62,7 +62,7 @@ public:
     [[nodiscard]] Map&& as_map() && noexcept { return std::move(*this); }
 
     template<typename Self, KeyType K, KeyType ...Ks>
-    [[nodiscard]] auto get_value(this Self& map, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const Value*, Value*> {
+    [[nodiscard]] auto get(this Self& map, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const Value*, Value*> {
         const auto it = [&] {
             if constexpr (requires{ map.find(key); }) {
                 return map.find(key);
@@ -70,20 +70,22 @@ public:
                 return map.find(Key(key));
             }
         }();
-        if (it == map.end())
+        if (it == map.end()) {
             return nullptr;
+        }
         if constexpr (sizeof...(Ks) == 0) {
             return std::addressof(it->second);
         } else {
             const auto p = std::get_if<VarMap>(&it->second);
-            if (!p)
+            if (!p) {
                 return nullptr;
-            return p->get_value(keys...);
+            }
+            return p->get(keys...);
         }
     }
 
     template<typename Self, KeyType K, KeyType ...Ks>
-    [[nodiscard]] auto&& get_value_ex(this Self&& map, const K& key, const Ks& ...keys) {
+    [[nodiscard]] auto&& get_ex(this Self&& map, const K& key, const Ks& ...keys) {
         const auto it = [&] {
             if constexpr (requires{ map.find(key); }) {
                 return map.find(key);
@@ -91,32 +93,36 @@ public:
                 return map.find(Key(key));
             }
         }();
-        if (it == map.end())
+        if (it == map.end()) {
             throw std::out_of_range("Key not found");
+        }
         if constexpr (sizeof...(Ks) == 0) {
             return std::forward_like<Self>(it->second);
         } else {
             const auto p = std::get_if<VarMap>(&it->second);
-            if (!p)
+            if (!p) {
                 throw std::out_of_range("Key does not refer to a map");
-            return std::forward_like<Self>(*p).get_value_ex(keys...);
+            }
+            return std::forward_like<Self>(*p).get_ex(keys...);
         }
     }
 
     template<ValueType T, typename Self, KeyType K, KeyType ...Ks>
     [[nodiscard]] auto get(this Self& self, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*> {
-        const auto p_val = self.get_value(key, keys...);
-        if (!p_val)
+        const auto p_val = self.get(key, keys...);
+        if (!p_val) {
             return nullptr;
+        }
         return std::get_if<T>(p_val);
     }
 
     template<ValueType T, typename Self, KeyType K, KeyType ...Ks>
     [[nodiscard]] auto&& get_ex(this Self&& self, const K& key, const Ks& ...keys) {
-        auto& val = self.get_value_ex(key, keys...);
+        auto& val = self.get_ex(key, keys...);
         const auto p = std::get_if<T>(&val);
-        if (!p)
+        if (!p) {
             throw std::out_of_range("Value type mismatch");
+        }
         return std::forward_like<Self>(*p);
     }
 };
@@ -212,8 +218,9 @@ public:
     template<ValueType T, typename Self, KeyType K, KeyType ...Ks>
     [[nodiscard]] auto get(this Self& self, GroupId group, const K& key, const Ks& ...keys) noexcept -> std::conditional_t<std::is_const_v<Self>, const T*, T*>{
         const auto it = self.find(group);
-        if (it == self.end())
+        if (it == self.end()) {
             return nullptr;
+        }
         return it->second.template get<T>(key, keys...);
     }
 
@@ -229,8 +236,9 @@ public:
     [[nodiscard]] auto&& get_ex(this Self&& self, GroupId group, const K& key, const Ks& ...keys) {
         // Unfortunately, std::map::at doesn't support heterogeneous lookup before C++26, so we have to check manually with find.
         const auto it = self.find(group);
-        if (it == self.end())
+        if (it == self.end()) {
             throw std::out_of_range("GroupId not found");
+        }
         return std::forward_like<Self>(it->second).template get_ex<T>(key, keys...);
     }
 
@@ -245,7 +253,9 @@ public:
     template<ValueType T, KeyType K, KeyType ...Ks>
     [[nodiscard]] const T& get_or(const T& default_val, GroupId group, const K& key, const Ks& ...keys) const noexcept {
         const auto p = get<T>(group, key, keys...);
-        if (!p) return default_val;
+        if (!p) {
+            return default_val;
+        }
         return *p;
     }
 
@@ -257,7 +267,9 @@ public:
     requires (!std::is_reference_v<T>) // T&& must be rvalue ref, in case T is deduced
     [[nodiscard]] auto get_or(T&& default_val, GroupId group, const K& key, const Ks& ...keys) const noexcept {
         const auto p = get<T>(group, key, keys...);
-        if (!p) return std::move(default_val);
+        if (!p) {
+            return std::move(default_val);
+        }
         return *p;
     }
 

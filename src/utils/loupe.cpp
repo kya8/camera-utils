@@ -81,9 +81,9 @@ const Value* find_value(const GroupedVarMap& gmap, std::string_view prop) noexce
                 return nullptr;
             }
             if (const auto key = find_key(sv); key == KeyId::Max_KeyId) {
-                val = map->get_value(sv);
+                val = map->get(sv);
             } else {
-                val = map->get_value(key);
+                val = map->get(key);
             }
             if (!val)
                 return nullptr;
