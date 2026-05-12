@@ -183,13 +183,14 @@ constexpr auto operator<=>(const std::variant<Ts...>& var, const T& rhs)
     , var);
 }
 
+// Equality operator allowing comparing a variant with a type that is equality comparable with at least one of its alternative types.
 template<typename ...Ts, typename T>
-requires (std::is_same_v<T, Ts> || ...)
+requires (requires(Ts a, T b){ a == b; } || ...)
 constexpr auto operator==(const std::variant<Ts...>& var, const T& rhs)
 {
     return std::visit(
         [&rhs]<typename V>(const V& val) {
-            if constexpr (std::is_same_v<V, T>) {
+            if constexpr (requires { val == rhs; }) {
                 return val == rhs;
             } else {
                 return false;
