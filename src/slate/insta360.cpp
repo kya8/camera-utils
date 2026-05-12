@@ -72,9 +72,9 @@ bool
 detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept try
 {
     file.seek(-magic_len, SeekFrom::End);
-    unsigned char buf[magic_len] {0};
-    file.read(buf, magic_len);
-    if (std::memcmp(buf, magic, magic_len) != 0) {
+    unsigned char buf_magic[magic_len] {0};
+    file.read(buf_magic, magic_len);
+    if (std::memcmp(buf_magic, magic, magic_len) != 0) {
         return false;
     }
 
@@ -153,13 +153,14 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
                     map["offset_v3"] = parse_offset_params(metadata.offset_v3());
                 }
 
-                const auto normalize_metadata = [&gmap = info.extras](const KeyType auto& key, KeyId key_normalized, GroupId from = GroupId::Metadata) {
-                    const auto group = gmap.find(from);
-                    if (group == gmap.cend()) return false;
-                    const auto it = group->second.find(key);
-                    if (it == group->second.cend()) return false;
-                    gmap[GroupId::NormalizedMetadata][key_normalized] = std::move(it->second);
-                    group->second.erase(it);
+                auto& map_normalized = info.extras[GroupId::NormalizedMetadata];
+                const auto normalize_metadata = [&map, &map_normalized](const KeyType auto& key, KeyId key_normalized) {
+                    const auto it = map.find(key);
+                    if (it == map.cend()) {
+                        return false;
+                    }
+                    map_normalized[key_normalized] = std::move(it->second);
+                    map.erase(it);
                     return true;
                 };
                 normalize_metadata("camera_type",         KeyId::CameraModel);
@@ -170,14 +171,14 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
                 normalize_metadata("cam_posture",         KeyId::CameraRotation);
 
                 // Sub-model
-                if (info.extras.get_or<std::string>("", GroupId::NormalizedMetadata, KeyId::CameraModel) == "Insta360 OneRS") {
+                if (const auto model = map_normalized.get<types::String>(KeyId::CameraModel); model && *model == "Insta360 OneRS") {
                     const auto offset_v3 = map.get<types::VecDouble>("offset_v3");
                     const auto offset = map.get<types::VecDouble>("offset");
                     if (offset_v3 && offset_v3->size() == 40 && int((*offset_v3)[19]) == 62) {
-                        info.extras[GroupId::NormalizedMetadata][KeyId::SubModel] = std::string("1-Inch 360 Edition");
+                        map_normalized[KeyId::SubModel] = std::string("1-Inch 360 Edition");
                     }
                     else if (offset && offset->size() == 16 && offset->front() == 2) {
-                        info.extras[GroupId::NormalizedMetadata][KeyId::SubModel] = std::string("360 Lens");
+                        map_normalized[KeyId::SubModel] = std::string("360 Lens");
                     }
                     // else: 4K Boost Lens, 1-Inch Wide Angle Lens
                 }
