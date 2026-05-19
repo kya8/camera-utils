@@ -56,6 +56,8 @@ concept ValueType = detail::is_one_of<T, Variant>;
 
 class VarMap : public Map {
 public:
+    using Map::Map;
+
     [[nodiscard]] const Map& as_map() const & noexcept { return *this; }
     [[nodiscard]] Map& as_map() & noexcept { return *this; }
     [[nodiscard]] const Map&& as_map() const && noexcept { return std::move(*this); }
