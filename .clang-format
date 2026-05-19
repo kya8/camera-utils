@@ -43,7 +43,7 @@ AlignConsecutiveBitFields:
   AcrossEmptyLines: false
   AcrossComments:   false
 AlignConsecutiveDeclarations:
-  Enabled:          true
+  Enabled:          false
   AcrossEmptyLines: false
   AcrossComments:   false
   AlignFunctionPointers: false
@@ -71,3 +71,4 @@ BraceWrapping:
   SplitEmptyFunction: false
   SplitEmptyRecord: false
   SplitEmptyNamespace: false
+InsertBraces: true
