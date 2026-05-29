@@ -268,7 +268,7 @@ detect_insta360(Mp4Stream& file, CameraInfo& info, bool metadata_only) noexcept 
         }
         else if ((id == RecordType::Gps ) && format == RecordFormat::Binary) {
             const auto count  = size / 53; // 53 bytes
-            types::GPSDataVec gps_data;
+            types::GpsDataVec gps_data;
             for (auto i = 0u; i < count; ++i) {
                 std::uint64_t t1; std::uint16_t t2;
                 std::uint8_t fix;

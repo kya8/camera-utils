@@ -38,7 +38,7 @@ class VarMap;
 // Tuples (static arrays) and vectors are for large homogeneous data, to allow for more efficient storage and processing.
 using Variant = detail::unique_variant_t<types::String, types::Bool, types::Int, types::UInt, types::Double,
                                          types::VecDouble, types::VecFloat, types::VecI32, types::VecI64, types::VecBytes,
-                                         types::GyroVec, types::AccVec, types::ExposureVec, types::QuaternionVec, types::TimedQuaternionVec, types::GPSDataVec,
+                                         types::GyroVec, types::AccVec, types::ExposureVec, types::QuaternionVec, types::TimedQuaternionVec, types::GpsDataVec,
                                          std::vector<types::Tuple2d>, std::vector<types::Tuple3d>, std::vector<types::Tuple4d>, std::vector<types::Tuple5d>,
                                          std::vector<types::Array2d>, std::vector<types::Array3d>, std::vector<types::Array4d>, std::vector<types::Array5d>,
 #ifdef SLATE_ENABLE_ANY

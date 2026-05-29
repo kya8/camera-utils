@@ -19,7 +19,8 @@ using VecDouble   = std::vector<double>;
 using VecFloat    = std::vector<float>;
 using VecI32      = std::vector<std::int32_t>;
 using VecI64      = std::vector<std::int64_t>;
-using VecBytes    = std::vector<unsigned char>;
+using VecU8       = std::vector<unsigned char>;
+using VecBytes    = VecU8;
 
 using Tuple2d     = std::tuple<double, double>;
 using Tuple3d     = std::tuple<double, double, double>;
@@ -46,8 +47,8 @@ using ExposureVec = std::vector<Tuple2d>;
 using QuaternionVec      = std::vector<Tuple4d>;  // X, Y, Z, W
 using TimedQuaternionVec = std::vector<Tuple5d>;
 
-using GPSDataEntry = std::tuple<bool, double, double, double, double, double, double>; // is_acquired, timestamp, lat, lon, altitude, speed, track
-using GPSDataVec   = std::vector<GPSDataEntry>;
+using GpsRecord  = std::tuple<bool, double, double, double, double, double, double>; // is_acquired, timestamp, lat, lon, altitude, speed, track
+using GpsDataVec = std::vector<GpsRecord>;
 
 } // namespace slate::types
 
