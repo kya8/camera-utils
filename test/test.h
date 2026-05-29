@@ -22,10 +22,10 @@
 
 #ifdef __cplusplus
 
-#define SLATE_EXPECT_THROW(EXPR, EXCEPTION)                                                                                       \
+#define SLATE_ASSERT_THROW(EXPR, EXCEPTION)                                                                                       \
     do {                                                                                                                          \
         try {                                                                                                                     \
-            EXPR;                                                                                                                 \
+            (void)(EXPR); /* Silence unused warnings */                                                                           \
         }                                                                                                                         \
         catch (const EXCEPTION&) {                                                                                                \
             break;                                                                                                                \
@@ -34,10 +34,10 @@
         exit(EXIT_FAILURE);                                                                                                       \
     } while (0)
 
-#define SLATE_EXPECT_NOTHROW(EXPR)                                                                   \
+#define SLATE_ASSERT_NOTHROW(EXPR)                                                                   \
     do {                                                                                             \
         try {                                                                                        \
-            EXPR;                                                                                    \
+            (void)(EXPR); /* Silence unused warnings */                                              \
         }                                                                                            \
         catch (...) {                                                                                \
             fprintf(stderr, "%s:%s: Unexpected exception caught!\n", __FILE__, SLATE_STR(__LINE__)); \
