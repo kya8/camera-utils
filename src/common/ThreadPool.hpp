@@ -60,14 +60,16 @@ public:
      * Initialize workers with a custom callable.
      * `init_fn` must be copyable.
      */
-    template<std::invocable F>
+    template<typename F>
+    requires std::invocable<F> && std::copy_constructible<F>
     ThreadPool(const F& init_fn, std::size_t nb_threads, std::size_t max_jobs)
     noexcept requires(Bounded) : detail::ThreadPoolBase<Bounded>{max_jobs}, tasks(max_jobs)
     {
         start_workers(init_fn, nb_threads);
     }
 
-    template<std::invocable F>
+    template<typename F>
+    requires std::invocable<F> && std::copy_constructible<F>
     ThreadPool(const F& init_fn, std::size_t nb_threads)
     noexcept requires(!Bounded)
     {
@@ -139,7 +141,7 @@ public:
 
     /**
      * Enqueue a task
-     * 
+     *
      * @return Returns `false` if pool is stopped, so the task cannot be enqueued.
      */
     template<typename F>
