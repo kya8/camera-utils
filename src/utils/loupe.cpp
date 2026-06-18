@@ -13,6 +13,7 @@
 #include "string_utils.hpp"
 #include <iostream>
 #include <ranges>
+#include <variant>
 
 using namespace slate;
 
@@ -92,6 +93,52 @@ const Value* find_value(const GroupedVarMap& gmap, std::string_view prop) noexce
     }
 
     return val;
+}
+
+void print_key(std::string_view key, int indent, int width, bool color)
+{
+    const auto key_width = indent < width ? width - indent : 1;
+    std::print("{:{}}", "", indent);
+    if (color)
+        std::print("\033[36m{:<{}}\033[0m", key, key_width);
+    else
+        std::print("{:<{}}", key, key_width);
+    std::print(":");
+}
+
+void print_map(const VarMap& map, std::size_t max_vec_len, bool color, int width)
+{
+    struct Frame {
+        const VarMap* map;
+        VarMap::const_iterator it;
+        VarMap::const_iterator end;
+        int indent;
+    };
+
+    static constexpr auto indent_step = 2;
+    std::vector<Frame> stack{{&map, map.begin(), map.end(), indent_step}};
+
+    while (!stack.empty()) {
+        auto& frame = stack.back();
+        if (frame.it == frame.end) {
+            stack.pop_back();
+            continue;
+        }
+
+        const auto& [key, value] = *frame.it++;
+        print_key(to_string(key), frame.indent, width, color);
+
+        if (const auto nested_map = std::get_if<VarMap>(&value)) {
+            if (nested_map->empty()) {
+                std::print(" {}\n", "{}");
+            } else {
+                std::putchar('\n');
+                stack.push_back({nested_map, nested_map->begin(), nested_map->end(), frame.indent + indent_step});
+            }
+        } else {
+            std::print(" {}\n", to_string(value, max_vec_len));
+        }
+    }
 }
 
 constexpr int max_verbosity = 4;
@@ -222,13 +269,7 @@ int slate::main_loupe(int argc, char** argv) noexcept
                     if (raw_output) {
                         std::cout << map << '\n';
                     } else {
-                        for (const auto& [key, value] : map) {
-                            if (stdout_is_colorterm)
-                                std::print("  \033[36m{:<{}}\033[0m", to_string(key), width - 2);
-                            else
-                                std::print("  {:<{}}", to_string(key), width - 2);
-                            std::print(": {}\n", to_string(value, max_vec_len));
-                        }
+                        print_map(map, max_vec_len, stdout_is_colorterm, width);
                     }
                 }
             }
