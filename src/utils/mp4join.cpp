@@ -38,7 +38,7 @@ auto get_spinner() noexcept
 
 
 const auto& help_msg =
-R"^^(🎞️ mp4join: Utility for joining consecutive MP4 files.
+R"^^(mp4join: Utility for joining consecutive MP4 files.
 
 Usage: mp4join <FILE_1> <FILE_2> [...] [-o OUTPUT]
 

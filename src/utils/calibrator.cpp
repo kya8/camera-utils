@@ -144,7 +144,7 @@ bool parse(std::string_view sv, T& val) noexcept
 }
 
 const auto& help_text =
-R"^^(🏁 calibrator: Utility to calibrate camera using chessboard patterns.
+R"^^(calibrator: Utility to calibrate camera using chessboard patterns.
 
 Usage: calibrator <INPUT> [--size ROWSxCOLS] [OPTIONS...]
 

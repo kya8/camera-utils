@@ -163,7 +163,7 @@ enum Mode {
 };
 
 const auto& help_message =
-R"^^(🌐 insta360_normalize: Undistort images from insta360 cameras.
+R"^^(insta360_normalize: Undistort images from insta360 cameras.
 
 Usage: insta360_normalize <-v FILE> [-0 DIRECTORY] [-1 DIRECTORY] [OPTIONS...]
 

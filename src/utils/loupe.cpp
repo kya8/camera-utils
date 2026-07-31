@@ -19,7 +19,7 @@ using namespace slate;
 namespace {
 
 const auto& help_msg =
-R"^^(🔍 loupe: Extract and display camera information from video files.
+R"^^(loupe: Extract and display camera information from video files.
 
 Usage: loupe <FILES...> [OPTIONS...]
 

@@ -1,5 +1,5 @@
 # Brief
-🎬 slate: Utilities and libraries for working with video files produced by some cameras.
+slate: Utilities and libraries for working with video files produced by some cameras.
 
 # Supported vendors
 
