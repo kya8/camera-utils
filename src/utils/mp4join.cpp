@@ -116,12 +116,19 @@ int slate::main_mp4join(int argc, char** argv) noexcept
     std::atomic<int> prog = -1;
     //int prog_prev = -1;
 
-    const auto prog_fn = [] (void* data, int prog_) {
+    const auto prog_fn = [](void* data, int prog_) {
         static_cast<std::atomic<int>*>(data)->store(prog_, std::memory_order_release);
     };
+
+    Mp4Merger merger;
+    for (const auto& file : inputs) {
+        merger.add_input(file);
+    }
+    merger.set_output(output_str.c_str()).set_progress_callback(prog_fn, &prog);
+
     std::thread worker {
         [&] {
-            ret = merge_mp4(inputs, output_str.c_str(), {prog_fn, &prog});
+            ret = merger.run();
             done.store(true, std::memory_order_release);
         }
     };
@@ -151,6 +158,9 @@ int slate::main_mp4join(int argc, char** argv) noexcept
     switch (ret) {
     case(Success):
         std::println("Merge done: {}", output_str);
+        break;
+    case(InvalidConfig):
+        std::println(stderr, "\x1b[1;31mError:\x1b[0m Invalid configuration.");
         break;
     case(InvalidInput):
         std::println(stderr, "\x1b[1;31mError:\x1b[0m Invalid input file.");

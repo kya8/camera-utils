@@ -2,48 +2,60 @@
 #define MP4_MERGE_HPP_C328A04A_1474_4AEB_A13A_C2AFFF31804A
 
 #include "slate/export.h"
-#include <span>
+#include <memory> // unique_ptr
 
 namespace slate::mp4 {
 
 enum class MergeResult {
     Success = 0,
-    InvalidInput, // Input files do not look like valid MP4 files.
-                  // This is returned by an initial shallow check.
-    IoError,      // An I/O error occurred.
-    InternalError // An internal error occurred.
-                  // This is mostly likely caused by bad/invalid input files,
-                  // e.g. input files are valid MP4 files, but they are not compatible for merging.
+    InvalidConfig, // Input / output was not set.
+    InvalidInput,  // Input files do not look like valid MP4 files.
+                   // This is returned by an initial shallow check.
+    IoError,       // An I/O error occurred.
+    InternalError  // An internal error occurred.
+                   // This is mostly likely caused by bad/invalid input files,
+                   // e.g. input files are valid MP4 files, but they are not compatible for merging.
 };
 
-struct MergeProgCb {
-    void(*cb)(void*, int) = nullptr;
-    void* data = nullptr;
+// Merge split/chaptered MP4 video files.
+// The input files are assumed to be in the correct order and have identical configurations (e.g., resolution, codec, etc.).
 
-    operator bool() const noexcept {
-        return cb != nullptr;
-    }
+class Mp4Merger {
+public:
+    /**
+     * Add an input filename. The filename is a null-terminated string, in platform-native narrow encoding.
+     * The filename string isn't copied, so it must outlive the merging process.
+     * You must add at-least 2 input files for merging.
+     * @return `*this`
+     */
+    SLATE_EXPORT Mp4Merger& add_input(const char* filename) noexcept;
+    /**
+     * Set output file path.
+     * @return `*this`
+     */
+    SLATE_EXPORT Mp4Merger& set_output(const char* filename) noexcept;
+    /**
+     * Set the callback used for signaling progress.
+     * If not set, no callback is called.
+     * @return `*this`
+     */
+    SLATE_EXPORT Mp4Merger& set_progress_callback(void(*fn)(void*, int), void* data) noexcept;
+    /**
+     * Start merging.
+     * @return MergeResult indicating the result of the operation.
+     */
+    SLATE_EXPORT MergeResult run() noexcept;
 
-    void operator()(int prog) const {
-        cb(data, prog);
-    }
+    SLATE_EXPORT Mp4Merger() noexcept;
+    SLATE_EXPORT ~Mp4Merger() noexcept;
+    SLATE_EXPORT Mp4Merger(Mp4Merger&&) noexcept;
+    SLATE_EXPORT Mp4Merger& operator=(Mp4Merger&&) noexcept;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl;
 };
-
-/**
- * Merge split/chaptered MP4 video files.
- * The input files are assumed to be in the correct order and have identical configurations (e.g., resolution, codec, etc.).
- *
- * @param[in] nb_input Number of input files
- * @param[in] input_files Array of input file paths. Each path is a null-terminated string, in platform-native narrow encoding.
- * @param[in] output_file Output file path. Follows the same encoding rules as input files.
- * @param[in] prog_cb Optional callback for progress updates. If not empty, the callback will be called with
- *                    the current progress percentage.
- *
- * @return MergeResult indicating the result of the operation.
- */
-SLATE_EXPORT MergeResult merge_mp4(std::span<const char* const> input_files, const char* output_file, MergeProgCb prog_cb = {}) noexcept;
 
 } // namespace slate::mp4
-
 
 #endif /* MP4_MERGE_HPP_C328A04A_1474_4AEB_A13A_C2AFFF31804A */
