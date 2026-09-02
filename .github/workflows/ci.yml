@@ -1,4 +1,4 @@
-name: Build slate
+name: CI
 
 on:
   push:
@@ -13,10 +13,10 @@ defaults:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    container:
-      image: ${{ matrix.container-image }}
-      volumes:
-        - /usr/local/share/vcpkg:/vcpkg
+    # container:
+    #   image: ${{ matrix.container-image }}
+    #   volumes:
+    #     - /usr/local/share/vcpkg:/vcpkg
 
     env:
       VCPKG_BINARY_SOURCES: "clear" # Disable binary caching, since we cache exports ourselves
@@ -26,19 +26,19 @@ jobs:
       fail-fast: false
 
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-26]
+        os: [ubuntu-26.04, windows-latest, macos-latest]
         build_type: [Release]
         include:
-          - os: macos-26
+          - os: macos-latest
             # cmake_extra_flags: "-D CMAKE_OSX_ARCHITECTURES='arm64;x86_64'"
             vcpkg_triplet: "arm64-osx"
           - os: windows-latest
             bin_ext: ".exe"
             # cmake_extra_flags: "-D CMAKE_MSVC_RUNTIME_LIBRARY='MultiThreaded$<$<CONFIG:Debug>:Debug>'"
             vcpkg_triplet: "x64-windows-static-md"
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             vcpkg_triplet: "x64-linux"
-            container-image: "kya8/fedora-dev:latest"
+            # container-image: "kya8/fedora-dev:latest"
         #c_compiler: [gcc, clang, cl]
 
     steps:
