@@ -3,7 +3,7 @@ find_package(Threads REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
 
 set(MULTI_CALL_NAMES calibrator insta360_normalize mp4join)
-set(MAIN_NAME loupe) # This is arbitary
+set(MAIN_NAME slate) # This is arbitary
 
 file(GLOB_RECURSE slate_utils_sources CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp

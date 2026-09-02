@@ -15,7 +15,7 @@ constexpr struct {
     std::string_view name;
     Fn& func;
 } main_fns[] {
-    {"loupe", main_loupe},
+    {"slate", main_slate},
     {"calibrator", main_calibrator},
     {"insta360_normalize", main_insta360_normalize},
     {"mp4join", main_mp4join}

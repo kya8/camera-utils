@@ -19,9 +19,9 @@ using namespace slate;
 namespace {
 
 const auto& help_msg =
-R"^^(loupe: Extract and display camera information from video files.
+R"^^(slate: Extract and display camera information from video files.
 
-Usage: loupe <FILES...> [OPTIONS...]
+Usage: slate <FILES...> [OPTIONS...]
 
 Options:
  -m, --metadata-only    Only extract metadata, skip sensor data and other streaming data.
@@ -98,7 +98,7 @@ constexpr int max_verbosity = 4;
 
 } // namespace
 
-int slate::main_loupe(int argc, char** argv) noexcept
+int slate::main_slate(int argc, char** argv) noexcept
 {
     std::vector<const char*> files;
     bool metadata_only = false;

@@ -10,7 +10,7 @@ slate: Utilities and libraries for working with video files produced by some cam
 
 [![Build](https://github.com/kya8/slate/actions/workflows/build.yml/badge.svg?event=push)](https://github.com/kya8/slate/actions/workflows/build.yml)
 
-* `loupe`: Inspect and dump various information and metadata extracted from video files.
+* `slate`: Inspect and dump various information and metadata extracted from video files.
 
 * `insta360_normalize`: Undistort panoramic images from Insta360 cameras.
 
