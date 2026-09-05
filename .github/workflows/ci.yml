@@ -11,7 +11,7 @@ defaults:
     shell: bash
 
 jobs:
-  build:
+  CI:
     runs-on: ${{ matrix.os }}
     # container:
     #   image: ${{ matrix.container-image }}
