@@ -35,8 +35,8 @@ parse_trak(Mp4Stream& file, const Mp4Stream::AtomInfo& trak_atom) noexcept try {
             track_info.tkhd_duration = duration;
         }
         file.seek(4*2+2+2+2+2, SeekFrom::Current);
-        for(auto i=0u; i<9; ++i) {
-            file.read_num(track_info.tkhd_matrix[i]);
+        for (auto& x : track_info.tkhd_matrix) {
+            file.read_num(x);
         }
         file.read_nums(track_info.tkhd_width, track_info.tkhd_height);
     }
@@ -150,8 +150,10 @@ get_tracks(Mp4Stream& file) noexcept try {
 
     for (const auto& atom : atoms_in_moov) {
         if (atom.fourcc == "trak"_fc) {
-            const auto info = parse_trak(file, atom);
-            if (info) result_tracks.push_back(std::move(*info));
+            auto info = parse_trak(file, atom);
+            if (info) {
+                result_tracks.push_back(std::move(*info));
+            }
         }
     }
 
