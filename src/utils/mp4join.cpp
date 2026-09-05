@@ -124,7 +124,7 @@ int slate::main_mp4join(int argc, char** argv) noexcept
     for (const auto& file : inputs) {
         merger.add_input(file);
     }
-    merger.set_output(output_str.c_str()).set_progress_callback(prog_fn, &prog);
+    merger.set_output(output_str).set_progress_callback(prog_fn, &prog);
 
     std::thread worker {
         [&] {

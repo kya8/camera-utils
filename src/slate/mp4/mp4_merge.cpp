@@ -494,8 +494,8 @@ write_merged(MergeInfo& info, std::vector<Mp4Stream>& files, BinaryFileStream& o
 } // namespace
 
 struct Mp4Merger::Impl {
-    std::vector<const char*> input_files;
-    const char* output = nullptr;
+    std::vector<std::string> input_files;
+    std::string output;
     MergeProgCb prog_cb;
 
     void prog(int prog) const noexcept {
@@ -510,14 +510,13 @@ Mp4Merger::~Mp4Merger() noexcept = default;
 Mp4Merger::Mp4Merger(Mp4Merger&&) noexcept = default;
 Mp4Merger& Mp4Merger::operator=(Mp4Merger&&) noexcept = default;
 
-Mp4Merger& Mp4Merger::add_input(const char* filename) noexcept
+Mp4Merger& Mp4Merger::add_input(std::string_view filename) noexcept
 {
-    assert(filename != nullptr);
-    impl->input_files.push_back(filename);
+    impl->input_files.emplace_back(filename);
     return *this;
 }
 
-Mp4Merger& Mp4Merger::set_output(const char* filename) noexcept
+Mp4Merger& Mp4Merger::set_output(std::string_view filename) noexcept
 {
     impl->output = filename;
     return *this;
@@ -532,20 +531,22 @@ Mp4Merger& Mp4Merger::set_progress_callback(void(*fn)(void*, int), void* data) n
 MergeResult
 Mp4Merger::run() noexcept try
 {
-    if (impl->input_files.size() < 2 || impl->output == nullptr) {
+    if (impl->input_files.size() < 2 || impl->output.empty() ) {
         return MergeResult::InvalidConfig; // Requires at-least 2 input files.
     }
 
     // Open all input files for read.
     std::vector<Mp4Stream> input_streams(impl->input_files.size());
     for (const auto& [file, stream] : std::views::zip(impl->input_files, input_streams)) {
-        if (!stream.open(file)) {
+        if (!stream.open(file.c_str())) {
             return MergeResult::IoError;
         }
     }
     // Verify input files.
     for (auto& file : input_streams) {
-        if (!check_input(file)) return MergeResult::InvalidInput;
+        if (!check_input(file)) {
+            return MergeResult::InvalidInput;
+        }
         file.seek(0);
     }
 
@@ -562,7 +563,9 @@ Mp4Merger::run() noexcept try
 
         // Update info list.
         file.seek(0);
-        if (!merge_info(*info, file, i, 0, file.get_length())) return MergeResult::InternalError;
+        if (!merge_info(*info, file, i, 0, file.get_length())) {
+            return MergeResult::InternalError;
+        }
 
         // Update offsets for next file.
         info->mdat_offset += info->mdat_position.at(i)[1];
@@ -576,10 +579,14 @@ Mp4Merger::run() noexcept try
 
     // Open the output file.
     BinaryFileStream output_stream;
-    if (!output_stream.open(impl->output, FileStreamMode::Write)) return MergeResult::IoError;
+    if (!output_stream.open(impl->output.c_str(), FileStreamMode::Write)) {
+        return MergeResult::IoError;
+    }
     // Write to output file.
     input_streams.front().seek(0);
-    if (!write_merged(*info, input_streams, output_stream, 0, input_streams.front().get_length(), impl->prog_cb)) return MergeResult::InternalError;
+    if (!write_merged(*info, input_streams, output_stream, 0, input_streams.front().get_length(), impl->prog_cb)) {
+        return MergeResult::InternalError;
+    }
 
     // Patch co64
     for (const auto &track : info->trak_infos) {

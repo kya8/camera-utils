@@ -3,6 +3,7 @@
 
 #include "slate/export.h"
 #include <memory> // unique_ptr
+#include <string_view>
 
 namespace slate::mp4 {
 
@@ -24,16 +25,16 @@ class Mp4Merger {
 public:
     /**
      * Add an input filename. The filename is a null-terminated string, in platform-native narrow encoding.
-     * The filename string isn't copied, so it must outlive the merging process.
+     * The string view is copied.
      * You must add at-least 2 input files for merging.
      * @return `*this`
      */
-    SLATE_EXPORT Mp4Merger& add_input(const char* filename) noexcept;
+    SLATE_EXPORT Mp4Merger& add_input(std::string_view filename) noexcept;
     /**
      * Set output file path.
      * @return `*this`
      */
-    SLATE_EXPORT Mp4Merger& set_output(const char* filename) noexcept;
+    SLATE_EXPORT Mp4Merger& set_output(std::string_view filename) noexcept;
     /**
      * Set the callback used for signaling progress.
      * If not set, no callback is called.
